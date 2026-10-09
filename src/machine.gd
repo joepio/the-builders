@@ -21,6 +21,8 @@ var exit_offset := Vector3(2.2, 0, 0)
 ## Ground contact points that leave marks in the sand: [local point, width, tread].
 var marks: Array = []
 var _flag: MeshInstance3D
+var _locks := [true, true]        ## Upright locks as built; released over the dump.
+var _in_dump := 0.0               ## Seconds spent down in the dump hole.
 var _name_tag: Label3D
 var _neutral := {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0,
 	"a": false, "b": false, "x": false, "y": false, "lb": false, "rb": false, "start": false,
@@ -37,6 +39,7 @@ func _ready() -> void:
 	physics_material_override = PhysicsMaterial.new()
 	physics_material_override.friction = 0.05
 	_build()
+	_locks = [axis_lock_angular_x, axis_lock_angular_z]
 	_name_tag = Toy.label(self, "", Vector3(0, tag_height(), 0), Color.WHITE, 72)
 	_name_tag.visible = false
 	home = global_transform
@@ -76,7 +79,23 @@ func _physics_process(delta: float) -> void:
 	if not driver.is_empty() and driver.controls: i = driver.controls.state
 	if i.is_empty(): i = _neutral
 	control(i, delta)
-	if global_position.y < -6.0: respawn()
+	_dump_fall(delta)
+	if global_position.y < -6.5: respawn()
+
+## Drive over the edge of the dump and the machine topples in, then comes
+## back at its spawn point a moment later.
+func _dump_fall(delta: float) -> void:
+	var p := global_position
+	var over: bool = Site.DUMP.has_point(Vector2(p.x, p.z))
+	if over:
+		axis_lock_angular_x = false
+		axis_lock_angular_z = false
+	if p.y < -1.5 and over:
+		_in_dump += delta
+		if _in_dump > 1.5:
+			if site: site.message.emit("%s fell in the dump!" % title)
+			respawn()
+	else: _in_dump = 0.0
 
 ## Moving parts (buckets, blades, forks) are kinematic and push with endless
 ## force, so a machine caught by one could be launched. Nothing on site
@@ -91,6 +110,9 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		state.angular_velocity = state.angular_velocity.normalized() * MAX_SPIN
 
 func respawn() -> void:
+	_in_dump = 0.0
+	axis_lock_angular_x = _locks[0]
+	axis_lock_angular_z = _locks[1]
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	global_transform = home.translated(Vector3.UP * 0.5)

@@ -17,7 +17,7 @@ That is the point.
 
 | Step | Who | How |
 | --- | --- | --- |
-| Clear the junk | Bulldozer | Push the sofa, tyres, slabs and the old fridge into the **DUMP** hole |
+| Clear the junk | Bulldozer | Push everything with an orange **JUNK** arrow (sofa, tyres, slabs, barrel, old fridge) into the **DUMP** hole. Careful: drive over the edge and your machine falls in too, and comes back at its spawn |
 | Dig the foundation pit | Excavator | Scoop the nine pit cells 0.8 m deep. The whole site is sand: dig anywhere, and dirt dropped on the ground piles up where it lands |
 | Haul the dirt | Excavator + dump truck | Dump into the truck, drive it to the hole, tip the bed. Dirt spilled back into the pit fills it again |
 | Pour the concrete | Concrete truck + builder on foot | Park the mixer near the pit, press X to start the pump, then grab the hose on foot and pour every dug cell full. The hose only reaches 11 m and missed concrete splats on the sand |

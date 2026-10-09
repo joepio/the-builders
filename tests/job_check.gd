@@ -218,6 +218,17 @@ func _run() -> void:
 	for b in get_nodes_in_group("clump"):
 		if b.global_position.y > 1.0: in_bed += 1
 	_check(in_bed == 0, "tipping the bed empties it (%d left)" % in_bed)
+	var fell := []
+	site.message.connect(func(t: String) -> void: if t.contains("fell in the dump"): fell.append(t))
+	tr.global_transform = Transform3D(Basis.IDENTITY, Vector3(18.5, 0.05, -3.5))
+	await _wait(0.3)
+	var low := 0.0
+	for k in 10:
+		await _hold(tr, {"rt": 1.0}, 0.4)
+		low = minf(low, tr.global_position.y)
+	_check(low < -1.5, "a truck can drive into the dump (lowest y %.1f)" % low)
+	await _wait(2.0)
+	_check(fell.size() == 1 and tr.global_position.y > -0.5, "and comes back at its spawn (%s, y %.1f)" % [fell, tr.global_position.y])
 
 	print("concrete")
 	site = await _fresh()

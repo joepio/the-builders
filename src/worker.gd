@@ -92,7 +92,8 @@ func walk(i: Dictionary, delta: float) -> void:
 		_body.position.y = absf(sin(_walk)) * 0.12
 	else:
 		_body.position.y = move_toward(_body.position.y, 0.0, delta)
-	if global_position.y < -6.0 and player.has("spawn"):
+	var fell_in_dump: bool = global_position.y < -1.5 and Site.DUMP.has_point(Vector2(global_position.x, global_position.z))
+	if (global_position.y < -6.0 or fell_in_dump) and player.has("spawn"):
 		global_position = player.spawn
 		velocity = Vector3.ZERO
 

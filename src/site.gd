@@ -14,7 +14,7 @@ const PIT_CELLS := 3
 const CELL := 2.0
 const PIT_DEPTH := 0.8
 const VOL_PER_LOAD := 1.2        ## Cubic metres of sand in a full bucket.
-const DUMP := Rect2(15.5, -11.5, 6.0, 5.0)
+const DUMP := Rect2(15.0, -13.0, 7.0, 7.0)
 const CRANE_AT := Vector3(-13, 0, -10)
 const PAD := Vector3(-8, 0, 6)
 const YARD := Vector3(16, 0, 8)
@@ -130,7 +130,8 @@ func _build_ground() -> void:
 	terrain.setup(SITE, sand, [DUMP])
 	var bedrock := StaticBody3D.new()
 	add_child(bedrock)
-	Toy.shape(bedrock, Vector3(SITE.size.x, 1.0, SITE.size.y), Vector3(SITE.get_center().x, Terrain.LOWEST - 0.6, SITE.get_center().y))
+	for r in cover(SITE, [DUMP]):
+		Toy.shape(bedrock, Vector3(r.size.x, 1.0, r.size.y), Vector3(r.get_center().x, Terrain.LOWEST - 0.6, r.get_center().y))
 	# Road outside the gate.
 	Toy.box(self, Vector3(8, 0.04, 36), Vector3((GATE.x + GATE.y) / 2.0, 0.02, SITE.end.y + 18), Color("#5b5f66"))
 
@@ -284,6 +285,16 @@ func _build_dump() -> void:
 		add_child(holder)
 		Toy.stripes(holder, Vector3(span, 0.04, 0.5), Vector3.ZERO, int(span))
 	Toy.box(self, Vector3(r.size.x, 0.1, r.size.y), Vector3(r.get_center().x, -6.0, r.get_center().y), Color("#2a1d14"))
+	# A real hole: walls and a floor deep enough that a machine can fall in.
+	var hole := StaticBody3D.new()
+	add_child(hole)
+	Toy.shape(hole, Vector3(r.size.x + 2.0, 1.0, r.size.y + 2.0), Vector3(r.get_center().x, -6.5, r.get_center().y))
+	for side in 4:
+		var horizontal := side < 2
+		var size := Vector3(r.size.x + 2.0, 6.5, 1.0) if horizontal else Vector3(1.0, 6.5, r.size.y + 2.0)
+		var pos := Vector3(r.get_center().x, -3.25, r.position.y - 0.5 if side == 0 else r.end.y + 0.5) if horizontal \
+			else Vector3(r.position.x - 0.5 if side == 2 else r.end.x + 0.5, -3.25, r.get_center().y)
+		Toy.shape(hole, size, pos)
 	for side in 4:
 		var horizontal := side < 2
 		var size := Vector3(r.size.x, 6.0, 0.05) if horizontal else Vector3(0.05, 6.0, r.size.y)
@@ -712,6 +723,13 @@ func _spawn_rubble() -> void:
 		if kind == "fridge":
 			b.rotation.x = PI / 2   # lying on its back
 			b.global_position.y = 0.45
+		# A bobbing arrow so it's clear what counts as junk.
+		var mark := Node3D.new()
+		mark.top_level = true
+		mark.name = "JunkMark"
+		b.add_child(mark)
+		Toy.cyl(mark, 0.4, 0.75, Vector3.ZERO, Toy.glow(Toy.ORANGE, 0.6), Vector3(PI, 0, 0), 0.0, 12)
+		Toy.label(mark, "JUNK", Vector3(0, 0.95, 0), Toy.ORANGE, 72)
 
 ## A crate by the builders' gate with two foam guns on it.
 ## Tufts stand on the ground: they sink and rise with it, and vanish where
@@ -814,8 +832,11 @@ func _physics_process(delta: float) -> void:
 				b.queue_free()
 		elif p.y < -8.0:
 			b.queue_free()
+	var bob := sin(Time.get_ticks_msec() * 0.004) * 0.15
 	for b in get_tree().get_nodes_in_group("rubble"):
 		var p: Vector3 = b.global_position
+		var mark: Node3D = b.get_node_or_null("JunkMark")
+		if mark: mark.global_position = p + Vector3(0, 2.4 + bob, 0)
 		if dump_rect.has_point(Vector2(p.x, p.z)) and p.y < -1.0:
 			rubble_cleared += 1
 			b.remove_from_group("rubble")
