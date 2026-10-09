@@ -82,7 +82,7 @@ func _build_environment() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 0.85
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
+	env.adjustment_saturation = 0.86
 	env.adjustment_contrast = 1.04
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -218,28 +218,39 @@ func _leave_machine(p: Dictionary) -> void:
 	p.machine = null
 	hud.set_players(players)
 
+const HOLD_FOR_CONTROLS := 0.3   ## Seconds Y must be held to show controls instead of a tap.
+
 func _physics_process(delta: float) -> void:
 	if demo: _demo_drive(delta)
 	if not managed and not demo: _drop_in()
 	for p in players:
 		var i: Dictionary = p.controls.read()
-		# Holding X shows this machine's controls in the player's card.
-		var show: bool = (p.machine != null or p.worker.holding != null) and (bool(i.x) or _pose and (players.find(p) < 2 or p.machine is Bulldozer))
+		# Y does it all: a tap climbs in or out (or picks up and puts down a
+		# tool), holding it shows the controls in the player's card.
+		var y_time: float = p.get("y_time", 0.0)
+		var y_tap := false
+		if i.y: y_time += delta
+		elif y_time > 0.0:
+			y_tap = y_time < HOLD_FOR_CONTROLS
+			y_time = 0.0
+		p["y_time"] = y_time
+		var show: bool = (p.machine != null or p.worker.holding != null) and (y_time >= HOLD_FOR_CONTROLS or _pose and (players.find(p) < 2 or p.machine is Bulldozer))
 		if show != bool(p.get("show_controls", false)):
 			p["show_controls"] = show
 			hud.set_players(players)
 		if p.machine:
-			if i.b_pressed: _leave_machine(p)
+			if y_tap: _leave_machine(p)
 		else:
 			var w: Worker = p.worker
 			w.walk(i, delta)
 			if w.holding:
 				w.holding.use(bool(i.a) or float(i.rt) > 0.3, delta)
-				if i.b_pressed:
+				if y_tap:
 					w.holding.drop()
 					hud.set_players(players)
-			elif i.a_pressed and w.stunned <= 0.0:
-				if not _grab_tool(p) and not _try_bolt(p): _enter_machine(p)
+			elif w.stunned <= 0.0:
+				if y_tap and not _grab_tool(p): _enter_machine(p)
+				elif i.a_pressed: _try_bolt(p)
 		if i.start_pressed and not managed and not demo: _toggle_pause()
 		if done_time >= 0.0 and not managed and i.a_pressed and job_time - done_time > 2.0: _new_site()
 	if running and done_time < 0.0: job_time += delta

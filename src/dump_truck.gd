@@ -1,6 +1,6 @@
 class_name DumpTruck
 extends Machine
-## Carries dirt from the digger to the dump. Hold Y (or RB) to tip the bed.
+## Carries dirt from the digger to the dump. Hold RB to tip the bed.
 ## Corner too hard with a full load and you'll leave a trail.
 
 const SPEED := 8.0
@@ -53,7 +53,7 @@ func _build() -> void:
 	add_child(_bed_body)
 	add_collision_exception_with(_bed_body)
 	_bed_body.add_collision_exception_with(self)
-	hint = [[["LS-h"], "steer"], [["RT", "LT"], "drive / reverse"], [["Y"], "tip the bed"], [["B"], "hop out"]]
+	hint = [[["LS-h"], "steer"], [["RT", "LT"], "drive / reverse"], [["RB"], "tip the bed"], [["Y"], "tap: hop out"]]
 	_pose()
 
 func control(i: Dictionary, delta: float) -> void:
@@ -63,7 +63,7 @@ func control(i: Dictionary, delta: float) -> void:
 	var v := linear_velocity.dot(fwd)
 	var yaw := -steer * v * 0.35
 	drive(throttle * SPEED, yaw, delta, 5.0, 0.8, 8.0, -1.4 * yaw)
-	var tipping: bool = i.y or i.rb
+	var tipping: bool = i.rb
 	tilt = move_toward(tilt, 1.2 if tipping else 0.0, (0.6 if tipping else 0.8) * delta)
 	# The tailgate swings open once the bed is up.
 	_tailgate.disabled = tilt > 0.3

@@ -15,7 +15,7 @@ var _spray: CPUParticles3D
 
 func _ready() -> void:
 	title = "PUR foam gun"
-	hint = [[["RT"], "spray foam"], [["B"], "put down"]]
+	hint = [[["RT"], "spray foam"], [["Y"], "tap: put down"]]
 	top_level = true
 	_rest = global_transform
 	# Can, gun, nozzle.

@@ -65,7 +65,7 @@ func _build() -> void:
 func set_easy(value: bool) -> void:
 	easy = value
 	var steer_text := "steer" if easy else "steer (rear wheels!)"
-	hint = [[["LS-h"], steer_text], [["RT", "LT"], "drive / reverse"], [["RS-v"], "forks up / down"], [["B"], "hop out"]]
+	hint = [[["LS-h"], steer_text], [["RT", "LT"], "drive / reverse"], [["RS-v"], "forks up / down"], [["Y"], "tap: hop out"]]
 
 func control(i: Dictionary, delta: float) -> void:
 	var throttle := float(i.rt) - float(i.lt)

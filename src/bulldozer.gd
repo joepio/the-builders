@@ -65,7 +65,7 @@ func _build() -> void:
 func set_easy(value: bool) -> void:
 	easy = value
 	var blade_hint := [[["RS-v"], "blade up / down"], [["RS-h"], "angle blade"]]
-	hint = ([[["LS"], "drive and steer"]] if easy else TRACK_HINT) + blade_hint + [[["B"], "hop out"]]
+	hint = ([[["LS"], "drive and steer"]] if easy else TRACK_HINT) + blade_hint + [[["Y"], "tap: hop out"]]
 
 func control(i: Dictionary, delta: float) -> void:
 	var l: float

@@ -90,7 +90,7 @@ func _build() -> void:
 	add_child(_bucket_body)
 	add_collision_exception_with(_bucket_body)
 	_bucket_body.add_collision_exception_with(self)
-	hint = [[["LS-h"], "swing"], [["LS-v"], "arm in / out"], [["RS-v"], "boom up / down"], [["RS-h"], "curl / dump bucket"]] + TRACK_HINT + [[["B"], "hop out"]]
+	hint = [[["LS-h"], "swing"], [["LS-v"], "arm in / out"], [["RS-v"], "boom up / down"], [["RS-h"], "curl / dump bucket"]] + TRACK_HINT + [[["Y"], "tap: hop out"]]
 	for side in [-1.0, 1.0]:
 		for z in [-1.6, 1.6]: marks.append([Vector3(side * 1.05, 0, z), 0.7, true])
 	_pose()

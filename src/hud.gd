@@ -195,7 +195,7 @@ func set_players(players: Array) -> void:
 		if thing != null and not p.get("show_controls", false):
 			var tip := HBoxContainer.new()
 			tip.add_theme_constant_override("separation", 6)
-			tip.add_child(PadIcon.make("X", _font))
+			tip.add_child(PadIcon.make("Y", _font))
 			var hold := _label("hold for controls", 16, Color(INK, 0.55))
 			hold.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			tip.add_child(hold)

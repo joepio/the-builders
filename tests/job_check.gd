@@ -197,7 +197,7 @@ func _run() -> void:
 	for b in get_nodes_in_group("clump"):
 		if b.global_position.y > 1.0: in_bed += 1
 	_check(in_bed >= 3, "a gentle drive keeps the load (%d)" % in_bed)
-	await _hold(tr, {"y": true}, 3.0)
+	await _hold(tr, {"rb": true}, 3.0)
 	await _wait(1.0)
 	in_bed = 0
 	for b in get_nodes_in_group("clump"):
@@ -211,8 +211,8 @@ func _run() -> void:
 	var mixer: ConcreteTruck = _machine(site, ConcreteTruck)
 	mixer.global_transform = Transform3D(Basis.IDENTITY, Vector3(4.0, 0.05, -3.0))
 	await _wait(0.3)
-	await _hold(mixer, {"y": true}, 0.1)
-	_check(mixer.pumping, "Y starts the pump")
+	await _hold(mixer, {"x": true}, 0.1)
+	_check(mixer.pumping, "X starts the pump")
 	var builder := Worker.new()
 	builder.setup({"name": "Pourer", "color": Color.RED})
 	site.add_child(builder)
@@ -286,18 +286,25 @@ func _run() -> void:
 	var exm: Machine = _machine(main.site, Excavator)
 	p.worker.global_position = exm.global_position + Vector3(2.5, 0.2, 0)
 	await _wait(0.3)
-	c.scripted = {"a": true}
-	await physics_frame
-	await physics_frame
+	c.scripted = {"y": true}
+	await _wait(0.1)
 	c.scripted = {"lx": 0.0}
 	await physics_frame
-	_check(p.machine == exm, "pressing A next to a machine climbs in")
-	c.scripted = {"b": true}
 	await physics_frame
-	await physics_frame
+	_check(p.machine == exm, "tapping Y next to a machine climbs in")
+	c.scripted = {"y": true}
+	await _wait(0.6)
+	_check(p.machine == exm and p.show_controls, "holding Y shows the controls instead")
 	c.scripted = {"lx": 0.0}
 	await physics_frame
-	_check(p.machine == null and p.worker.visible, "B climbs back out")
+	await physics_frame
+	_check(p.machine == exm and not p.show_controls, "and letting go keeps you in")
+	c.scripted = {"y": true}
+	await _wait(0.1)
+	c.scripted = {"lx": 0.0}
+	await physics_frame
+	await physics_frame
+	_check(p.machine == null and p.worker.visible, "tapping Y again climbs back out")
 	# Walk towards the camera: the fridge junk sits just to the right.
 	c.scripted = {"ly": 1.0}
 	var z0: float = p.worker.global_position.z

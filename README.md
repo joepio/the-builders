@@ -20,7 +20,7 @@ That is the point.
 | Clear the junk | Bulldozer | Push the sofa, tyres, slabs and the old fridge into the **DUMP** hole |
 | Dig the foundation pit | Excavator | Scoop the nine dirt cells down to the pit floor |
 | Haul the dirt | Excavator + dump truck | Dump into the truck, drive it to the hole, tip the bed. Dirt spilled back into the pit fills it again |
-| Pour the concrete | Concrete truck + builder on foot | Park the mixer near the pit, press Y to start the pump, then grab the hose on foot and pour every dug cell full. The hose only reaches 11 m and missed concrete splats on the sand |
+| Pour the concrete | Concrete truck + builder on foot | Park the mixer near the pit, press X to start the pump, then grab the hose on foot and pour every dug cell full. The hose only reaches 11 m and missed concrete splats on the sand |
 | Stack the house | Forklifts + crane + builders | Forklift modules from **DELIVERIES** to **CRANE PICKUP**, crane them onto the dotted ghosts (four below, two on top, then the roof). Nothing snaps: a builder on foot presses A next to a lowered module to bolt it in exactly where it stands, up to 1 m off and 20 degrees twisted. Sloppy crane work makes a wonky house |
 | PUR every gap | Builders on foot | Grab a foam gun from the PUR crate and spray every glowing gap where two parts meet. Wonkier joins need more foam. The job ends with a neatness score |
 
@@ -29,18 +29,19 @@ gives three stars under 8 minutes and two under 12.
 
 ## Controls
 
-On foot: left stick walks, **A** picks up a tool (concrete hose, foam
-gun), bolts a lowered module in, or climbs into the nearest free machine, **B** climbs out or puts the tool down,
-**RT** or **A** uses the tool. Fast machines knock builders over. Hold **X** in a machine to
-show its controls in your player card.
+**Y** does the getting in and out: tap it to climb into the nearest free
+machine or out again, or to pick up and put down a tool (concrete hose, foam
+gun). Hold **Y** to show what you're driving or holding in your player card.
+On foot, the left stick walks, **A** bolts a lowered module in, and **RT** or
+**A** uses a held tool. Fast machines knock builders over.
 
 | Machine | Controls |
 | --- | --- |
 | Bulldozer | LT / LB: left track forward / back, RT / RB: right track forward / back, right stick: lift and angle the blade |
 | Excavator | Left stick: swing / arm in-out, right stick: boom / bucket curl, LT / LB and RT / RB: tracks, same as the bulldozer. Dirt stays in while the bucket faces up |
 | Forklift | Left stick: steer (rear wheels), RT / LT: drive / reverse, right stick: forks |
-| Dump truck | Left stick: steer, RT / LT: drive / reverse, Y or RB: tip the bed |
-| Concrete truck | Left stick: steer, RT / LT: drive / reverse, Y: pump on / off |
+| Dump truck | Left stick: steer, RT / LT: drive / reverse, RB: tip the bed |
+| Concrete truck | Left stick: steer, RT / LT: drive / reverse, X: pump on / off |
 | Tower crane | Left stick: rotate / trolley, right stick: hoist, A: hook on / let go, LB / RB: turn the load |
 
 The GameNight setting **Machine controls: easy** gives the bulldozer one-stick

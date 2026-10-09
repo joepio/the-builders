@@ -110,7 +110,7 @@ func _build() -> void:
 	marker.material_override = Toy.glow(Color(1, 0.85, 0.2), 0.6)
 	marker.top_level = true
 	add_child(marker)
-	hint = [[["LS-h"], "rotate"], [["LS-v"], "trolley in / out"], [["RS-v"], "hoist up / down"], [["A"], "hook on / let go"], [["LB", "RB"], "turn the load"], [["B"], "climb down"]]
+	hint = [[["LS-h"], "rotate"], [["LS-v"], "trolley in / out"], [["RS-v"], "hoist up / down"], [["A"], "hook on / let go"], [["LB", "RB"], "turn the load"], [["Y"], "tap: climb down"]]
 	_pose()
 
 func ready_hook() -> void:

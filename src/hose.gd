@@ -22,7 +22,7 @@ var _land := Vector3.ZERO
 
 func _ready() -> void:
 	title = "Concrete hose"
-	hint = [[["RT"], "pour (pump on)"], [["B"], "put down"]]
+	hint = [[["RT"], "pour (pump on)"], [["Y"], "tap: put down"]]
 	top_level = true
 	var tube := CylinderMesh.new()
 	tube.top_radius = 0.14

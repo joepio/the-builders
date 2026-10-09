@@ -1,7 +1,7 @@
 class_name ConcreteTruck
 extends Machine
 ## Mixer truck with a pump and a long hose. Drive it close to the pit, press
-## Y to start the pump, then someone on foot grabs the hose and pours. The
+## X to start the pump, then someone on foot grabs the hose and pours. The
 ## hose only reaches so far, so park well.
 
 const SPEED := 7.0
@@ -51,7 +51,7 @@ func _build() -> void:
 	Toy.shape(self, Vector3(2.2, 1.2, 5.6), Vector3(0, 0.6, 0.3))
 	Toy.shape(self, Vector3(2.2, 1.6, 1.5), Vector3(0, 1.6, -1.75))
 	Toy.shape(self, Vector3(2.1, 2.0, 3.4), Vector3(0, 2.0, 1.0))
-	hint = [[["LS-h"], "steer"], [["RT", "LT"], "drive / reverse"], [["Y"], "pump on / off"], [["B"], "hop out"]]
+	hint = [[["LS-h"], "steer"], [["RT", "LT"], "drive / reverse"], [["X"], "pump on / off"], [["Y"], "tap: hop out"]]
 
 func _ready() -> void:
 	super._ready()
@@ -66,7 +66,7 @@ func control(i: Dictionary, delta: float) -> void:
 	var v := linear_velocity.dot(fwd)
 	var yaw := -steer * v * 0.33
 	drive(throttle * SPEED, yaw, delta, 4.5, 0.8, 8.0, -1.4 * yaw)
-	if i.y_pressed: set_pumping(not pumping)
+	if i.x_pressed: set_pumping(not pumping)
 	_drum.rotation.z += delta * (4.0 if pumping else 1.2)
 	for w in _front_wheels: w.rotation.y = -steer * 0.5
 
