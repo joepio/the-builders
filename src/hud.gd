@@ -154,19 +154,28 @@ func set_tasks(tasks: Array) -> void:
 		row.add_child(who)
 		_tasks.add_child(row)
 		_task_rows.append([tick, name, value, who, ""])
+	# Open steps get the focus; finished ones shrink and fade; of the locked
+	# ones only the next is hinted at.
+	var hinted := false
 	for k in tasks.size():
 		var t: Dictionary = tasks[k]
 		var row: Array = _task_rows[k]
 		var done: bool = t.done
-		row[0].text = "✔" if done else "○"
-		row[0].add_theme_color_override("font_color", Color("#2f9e44") if done else INK)
-		row[1].text = t.label
-		row[1].add_theme_color_override("font_color", Color(INK, 0.45) if done else INK)
-		if t.get("auto", false): row[2].text = "" if done else "auto"
+		var locked: bool = t.get("locked", false) and not done
+		row[0].get_parent().visible = not locked or not hinted
+		if locked: hinted = true
+		var size := 26 if not done and not locked else 19
+		for c in 3: row[c].add_theme_font_size_override("font_size", size)
+		row[0].text = "✔" if done else ("·" if locked else "○")
+		row[0].add_theme_color_override("font_color", Color("#2f9e44") if done else Color(INK, 0.4) if locked else INK)
+		row[1].text = "Next: %s, %s" % [t.label, t.after] if locked else t.label
+		row[1].add_theme_color_override("font_color", Color(INK, 0.4) if done or locked else INK)
+		if locked: row[2].text = ""
+		elif t.get("auto", false): row[2].text = "" if done else "auto"
 		elif t.get("percent", false): row[2].text = "%d%%" % t.value
 		else: row[2].text = "%d/%d" % [t.value, t.total]
-		row[2].add_theme_color_override("font_color", Color(INK, 0.45) if done else Toy.ORANGE.darkened(0.2))
-		var who: Array = t.get("who", [])
+		row[2].add_theme_color_override("font_color", Color(INK, 0.4) if done else Toy.ORANGE.darkened(0.2))
+		var who: Array = [] if locked else t.get("who", [])
 		var key := str(who.map(func(p): return str(p.name)))
 		if key != row[4]:
 			row[4] = key

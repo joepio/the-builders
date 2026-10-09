@@ -311,6 +311,7 @@ func _process(_delta: float) -> void:
 	for p in players:
 		var k := _task_for(p)
 		var label: String = tasks[k].label if k >= 0 else ""
+		if k >= 0 and tasks[k].locked: label = "later: " + label.to_lower()
 		if label != str(p.get("task", "")):
 			p["task"] = label
 			hud.set_players(players)

@@ -232,7 +232,16 @@ func _run() -> void:
 
 	print("concrete")
 	site = await _fresh()
+	var first: Dictionary = site.cells[0]
+	first.depth = Site.PIT_DEPTH
+	site._set_cell(first)
+	await _wait(0.3)
+	_check(not site.pour_at(Vector3(first.x, -0.5, first.z), 0.5), "no pouring before the whole pit is dug")
+	var steps: Array = site.tasks().map(func(t: Dictionary) -> bool: return t.locked)
+	_check(steps == [false, false, true, true, true], "only junk and digging are open at the start (%s)" % [steps])
 	site.cheat("dug")
+	await _wait(0.3)
+	_check(not site.tasks()[2].locked and site.tasks()[3].locked, "a dug pit opens the pour, not the stacking")
 	await _wait(0.2)
 	var mixer: ConcreteTruck = _machine(site, ConcreteTruck)
 	mixer.global_transform = Transform3D(Basis.IDENTITY, Vector3(4.0, 0.05, -3.0))

@@ -45,6 +45,11 @@ var rubble_total := 0
 var rubble_cleared := 0
 var dirt_dumped := 0.0
 var finished := false
+## Which job steps are open: junk and digging from the start, the pour once the
+## pit is dug, stacking once the slab has set, PUR once the first gap appears.
+var unlocked := [true, true, false, false, false]
+const STEP_NAMES := ["Clear the junk", "Dig the foundation pit", "Pour the concrete", "Stack the house", "PUR every gap"]
+const STEP_AFTER := ["", "", "once the pit is dug", "once the concrete has set", "once two parts touch"]
 var easy := false
 var _clump_mesh: SphereMesh
 var _clump_shape: SphereShape3D
@@ -200,7 +205,7 @@ func ground_at(p: Vector3) -> float:
 ## The hose pours `amount` (cells) at `p`. Returns false when it misses:
 ## outside the pit, or into a cell that isn't dug out yet or is already full.
 func pour_at(p: Vector3, amount: float) -> bool:
-	if poured or pouring: return false
+	if poured or pouring or not unlocked[2]: return false
 	var c := _cell_at(p)
 	if c.is_empty() or float(c.depth) < PIT_DEPTH * 0.92: return false
 	if float(c.concrete) >= 1.0:
@@ -728,8 +733,7 @@ func _spawn_rubble() -> void:
 		mark.top_level = true
 		mark.name = "JunkMark"
 		b.add_child(mark)
-		Toy.cyl(mark, 0.4, 0.75, Vector3.ZERO, Toy.glow(Toy.ORANGE, 0.6), Vector3(PI, 0, 0), 0.0, 12)
-		Toy.label(mark, "JUNK", Vector3(0, 0.95, 0), Toy.ORANGE, 72)
+		Toy.cyl(mark, 0.24, 0.42, Vector3.ZERO, Toy.ORANGE, Vector3(PI, 0, 0), 0.0, 8)
 
 ## A crate by the builders' gate with two foam guns on it.
 ## Tufts stand on the ground: they sink and rise with it, and vanish where
@@ -792,13 +796,27 @@ func set_easy(value: bool) -> void:
 
 func tasks() -> Array:
 	var house := placed_count()
-	return [
-		{"label": "Clear the junk", "value": rubble_cleared, "total": rubble_total, "done": rubble_cleared >= rubble_total},
-		{"label": "Dig the foundation pit", "value": int(round(pit_progress() * 100.0)), "total": 100, "done": pit_progress() >= 0.999 or poured, "percent": true},
-		{"label": "Pour the concrete", "value": 100 if poured else int(floor(pour_progress() * 100.0)), "total": 100, "done": poured, "percent": true},
-		{"label": "Stack the house", "value": house, "total": slots.size(), "done": house >= slots.size()},
-		{"label": "PUR every gap", "value": seams_done(), "total": seams.size(), "done": seams_done() >= seams.size()},
+	var list := [
+		{"value": rubble_cleared, "total": rubble_total, "done": rubble_cleared >= rubble_total},
+		{"value": int(round(pit_progress() * 100.0)), "total": 100, "done": pit_progress() >= 0.999 or poured, "percent": true},
+		{"value": 100 if poured else int(floor(pour_progress() * 100.0)), "total": 100, "done": poured, "percent": true},
+		{"value": house, "total": slots.size(), "done": house >= slots.size()},
+		{"value": seams_done(), "total": seams.size(), "done": seams_done() >= seams.size()},
 	]
+	for k in list.size():
+		list[k]["label"] = STEP_NAMES[k]
+		list[k]["after"] = STEP_AFTER[k]
+		list[k]["locked"] = not unlocked[k]
+	return list
+
+## Open the next steps as the earlier ones get done.
+func _update_unlocks() -> void:
+	var want := [true, true, unlocked[2] or pit_progress() >= 0.999 or poured, poured,
+		seams.any(func(sm: Dictionary) -> bool: return sm.open)]
+	for k in want.size():
+		if want[k] and not unlocked[k]:
+			unlocked[k] = true
+			message.emit("New step: %s!" % STEP_NAMES[k])
 
 func _physics_process(delta: float) -> void:
 	for m in machines:
@@ -832,11 +850,11 @@ func _physics_process(delta: float) -> void:
 				b.queue_free()
 		elif p.y < -8.0:
 			b.queue_free()
-	var bob := sin(Time.get_ticks_msec() * 0.004) * 0.15
+	var bob := sin(Time.get_ticks_msec() * 0.003) * 0.06
 	for b in get_tree().get_nodes_in_group("rubble"):
 		var p: Vector3 = b.global_position
 		var mark: Node3D = b.get_node_or_null("JunkMark")
-		if mark: mark.global_position = p + Vector3(0, 2.4 + bob, 0)
+		if mark: mark.global_position = p + Vector3(0, 2.0 + bob, 0)
 		if dump_rect.has_point(Vector2(p.x, p.z)) and p.y < -1.0:
 			rubble_cleared += 1
 			b.remove_from_group("rubble")
@@ -871,6 +889,7 @@ func _physics_process(delta: float) -> void:
 		_pour()
 	_check_slots()
 	_update_seams()
+	_update_unlocks()
 	if not finished and placed_count() == slots.size() and seams_done() == seams.size():
 		message.emit("HOUSE COMPLETE! Neatness %d%%" % neatness())
 		_finish()
@@ -904,6 +923,7 @@ func _finish() -> void:
 ## Demo/screenshot helper: jump the job forward.
 func cheat(stage: String) -> void:
 	if stage in ["dug", "poured", "built", "half"]:
+		unlocked[2] = true
 		for c in cells:
 			c.depth = PIT_DEPTH
 			_set_cell(c)
@@ -916,6 +936,8 @@ func cheat(stage: String) -> void:
 				b.remove_from_group("rubble")
 				b.queue_free()
 	if stage in ["built", "half"]:
+		unlocked[3] = true
+		unlocked[4] = true
 		poured = true
 		terrain.flatten(pit_rect.grow(0.2), -PIT_DEPTH)
 		for c in cells: c.depth = PIT_DEPTH

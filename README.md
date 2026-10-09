@@ -15,9 +15,11 @@ That is the point.
 
 ## The job: a tiny house
 
+Steps unlock as you go. Junk and digging are open from the start; the pour opens once the pit is dug, stacking once the concrete has set, and PUR as soon as two parts touch. The job card shows the open steps big, done ones small, and only the next locked one.
+
 | Step | Who | How |
 | --- | --- | --- |
-| Clear the junk | Bulldozer | Push everything with an orange **JUNK** arrow (sofa, tyres, slabs, barrel, old fridge) into the **DUMP** hole. Careful: drive over the edge and your machine falls in too, and comes back at its spawn |
+| Clear the junk | Bulldozer | Push everything with a small orange marker (sofa, tyres, slabs, barrel, old fridge) into the **DUMP** hole. Careful: drive over the edge and your machine falls in too, and comes back at its spawn |
 | Dig the foundation pit | Excavator | Scoop the nine pit cells 0.8 m deep. The whole site is sand: dig anywhere, and dirt dropped on the ground piles up where it lands |
 | Haul the dirt | Excavator + dump truck | Dump into the truck, drive it to the hole, tip the bed. Dirt spilled back into the pit fills it again |
 | Pour the concrete | Concrete truck + builder on foot | Park the mixer near the pit, press X to start the pump, then grab the hose on foot and pour every dug cell full. The hose only reaches 11 m and missed concrete splats on the sand |
