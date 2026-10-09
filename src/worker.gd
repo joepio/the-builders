@@ -11,6 +11,7 @@ var walked := 0.0   ## Metres on foot, for tests and stats.
 var _body: Node3D
 var _stars: Node3D
 var _walk := 0.0
+var _next_step := 0.7
 var _name_tag: Label3D
 
 func setup(p: Dictionary) -> void:
@@ -68,6 +69,14 @@ func walk(i: Dictionary, delta: float) -> void:
 	var before := global_position
 	move_and_slide()
 	walked += Vector2(global_position.x - before.x, global_position.z - before.z).length()
+	if walked > _next_step and is_on_floor():
+		# Boot prints, left and right, in the site's sand.
+		_next_step = walked + 0.7
+		var site: Node = get_parent()
+		if site and site.get("ruts"):
+			var side := 0.22 if int(walked / 0.7) % 2 == 0 else -0.22
+			var v := Vector3(velocity.x, 0, velocity.z).normalized()
+			site.ruts.dent(global_position + Vector3(-v.z, 0, v.x) * side, 0.32, 0.4)
 	for k in get_slide_collision_count():
 		var col := get_slide_collision(k)
 		var other := col.get_collider()

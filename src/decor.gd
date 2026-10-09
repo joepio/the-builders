@@ -13,6 +13,9 @@ uniform vec3 light : source_color;
 uniform vec3 side : source_color;
 uniform float scale = 0.12;
 uniform float speckle = 0.5;
+uniform sampler2D ruts : filter_linear, repeat_disable;
+uniform vec4 ruts_rect = vec4(0.0, 0.0, 1.0, 1.0);
+uniform float ruts_on = 0.0;
 varying vec3 wpos;
 varying vec3 wnormal;
 void vertex() {
@@ -41,6 +44,15 @@ void fragment() {
 	vec2 local = fract(p * 4.0) - 0.5;
 	float speck = step(0.86, hash(cell)) * (1.0 - smoothstep(0.12, 0.22, length(local)));
 	c = mix(c, dark * 0.75, speck * speckle);
+	// Tracks pressed into the ground: darker, damp grooves, lit on the far
+	// wall from the sun and shaded on the near one.
+	vec2 ruv = (p - ruts_rect.xy) / ruts_rect.zw;
+	if (ruts_on > 0.5 && ruv.x > 0.0 && ruv.y > 0.0 && ruv.x < 1.0 && ruv.y < 1.0) {
+		float r = texture(ruts, ruv).r;
+		float rl = texture(ruts, ruv + vec2(-0.57, 0.82) * 0.09 / ruts_rect.zw).r;
+		c = mix(c, dark * 0.82, r * 0.6);
+		c *= clamp(1.0 + (rl - r) * 1.4, 0.6, 1.35);
+	}
 	if (wnormal.y < 0.5) c = side * (0.85 + 0.2 * noise(vec2(p.x + p.y, wpos.y) * 2.0));
 	ALBEDO = c;
 	ROUGHNESS = 0.95;

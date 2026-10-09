@@ -14,6 +14,8 @@ var home := Transform3D.IDENTITY  ## Where it respawns when it falls off the wor
 var easy := false                 ## Friendlier controls (settings: controls = easy).
 var site: Node = null
 var exit_offset := Vector3(2.2, 0, 0)
+## Ground contact points that leave marks in the sand: [local point, width, tread].
+var marks: Array = []
 var _flag: MeshInstance3D
 var _name_tag: Label3D
 var _neutral := {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0,

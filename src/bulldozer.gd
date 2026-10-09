@@ -58,6 +58,8 @@ func _build() -> void:
 	add_collision_exception_with(_blade_body)
 	_blade_body.add_collision_exception_with(self)
 	set_easy(false)
+	for side in [-1.0, 1.0]:
+		for z in [-1.3, 1.7]: marks.append([Vector3(side * 1.0, 0, z), 0.62, true])
 	_pose()
 
 func set_easy(value: bool) -> void:

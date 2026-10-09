@@ -38,6 +38,7 @@ func _build() -> void:
 			var w := Toy.wheel(self, 0.42 if z < 0 else 0.32, 0.32, Vector3(x, 0.42 if z < 0 else 0.32, z))
 			if z < 0: _front_wheels.append(w)
 			else: _rear_wheels.append(w)
+			marks.append([Vector3(x, 0, z), 0.32, false])
 	carriage = Node3D.new()
 	carriage.position = Vector3(0, lift, -1.4)
 	add_child(carriage)

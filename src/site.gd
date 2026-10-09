@@ -28,6 +28,7 @@ var poured := false
 var pouring := false
 var slots: Array[Dictionary] = []
 var machines: Array[Machine] = []
+var ruts: Ruts
 var crane: Crane
 var rubble_total := 0
 var rubble_cleared := 0
@@ -107,6 +108,10 @@ func _build_ground() -> void:
 	var grass := Decor.grass()
 	var sand := Decor.sand()
 	for r in cover(WORLD, [SITE]): _slab(self, r, 0.0, 3.0, grass, true)
+	ruts = Ruts.new()
+	add_child(ruts)
+	ruts.setup(SITE)
+	ruts.apply(sand)
 	for r in cover(SITE, holes): _slab(self, r, 0.0, 3.0, sand, true)
 	# Road outside the gate.
 	Toy.box(self, Vector3(8, 0.04, 36), Vector3((GATE.x + GATE.y) / 2.0, 0.02, SITE.end.y + 18), Color("#5b5f66"))
@@ -514,6 +519,10 @@ func tasks() -> Array:
 	]
 
 func _physics_process(delta: float) -> void:
+	for m in machines:
+		for k in m.marks.size():
+			var mk: Array = m.marks[k]
+			ruts.follow(m.get_instance_id() * 8 + k, m.global_transform * mk[0], mk[1], 0.85 if mk[2] else 0.7, mk[2])
 	var dump_rect := DUMP
 	for b in get_tree().get_nodes_in_group("clump"):
 		var p: Vector3 = b.global_position

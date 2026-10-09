@@ -27,6 +27,7 @@ func _build() -> void:
 	for z in [-1.7, 0.9, 1.9]:
 		for x in [-1.0, 1.0]:
 			var w := Toy.wheel(self, 0.5, 0.42, Vector3(x, 0.5, z))
+			if z != 0.9: marks.append([Vector3(x, 0, z), 0.42, false])
 			if z < 0: _front_wheels.append(w)
 	bed = Node3D.new()
 	bed.position = Vector3(0, 1.0, 2.5)
