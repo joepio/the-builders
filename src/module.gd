@@ -29,11 +29,14 @@ func _ready() -> void:
 	physics_material_override.friction = 0.9
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = Vector3(0, 1.0, 0)
-	# Pallet runners
+	# A four-way pallet: blocks at the corners and edge middles, so forks
+	# slide in from any side. Only the corners collide, to be forgiving.
 	for x in [-1.05, 0.0, 1.05]:
-		if x == 0.0: continue
-		_pallet.append(Toy.box(self, Vector3(0.3, PALLET, 2.4), Vector3(x, PALLET / 2.0, 0), Toy.WOOD))
-		_pallet.append(Toy.shape(self, Vector3(0.3, PALLET, 2.4), Vector3(x, PALLET / 2.0, 0)))
+		for z in [-1.05, 0.0, 1.05]:
+			if x == 0.0 and z == 0.0: continue
+			_pallet.append(Toy.box(self, Vector3(0.3, PALLET - 0.06, 0.3), Vector3(x, (PALLET - 0.06) / 2.0, z), Toy.WOOD))
+			if x != 0.0 and z != 0.0:
+				_pallet.append(Toy.shape(self, Vector3(0.3, PALLET, 0.3), Vector3(x, PALLET / 2.0, z)))
 	_pallet.append(Toy.box(self, Vector3(2.4, 0.06, 2.4), Vector3(0, PALLET - 0.03, 0), Toy.WOOD))
 	if kind == "roof": _build_roof()
 	else: _build_module()
@@ -98,6 +101,9 @@ func _build_roof() -> void:
 func center() -> Vector3:
 	if kind == "roof": return global_transform * Vector3(0, PALLET + 0.5, 0)
 	return global_transform * Vector3(0, PALLET + SIZE.y / 2.0, 0)
+
+## A forklift holding this pallet on its forks, or null.
+var forklift: Node = null
 
 func on_hooked(crane: Node) -> void:
 	_crane = crane

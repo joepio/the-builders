@@ -7,8 +7,8 @@ extends Machine
 
 const SWING_SPEED := 1.1
 const BOOM := Vector2(-0.45, 1.05)     ## min/max boom angle
-const ARM := Vector2(-2.5, -0.35)
-const BUCKET := Vector2(-2.6, 0.9)
+const ARM := Vector2(-2.3, -0.35)
+const BUCKET := Vector2(-2.1, 0.5)   ## A real bucket curls about 150 degrees
 const CAPACITY := 1.0
 const CLUMPS_PER_LOAD := 4
 
@@ -44,7 +44,7 @@ func _build() -> void:
 	cab.position = Vector3(0, 1.1, 0)
 	add_child(cab)
 	Toy.box(cab, Vector3(2.3, 1.0, 2.6), Vector3(0, 0.5, 0.25), Toy.YELLOW)
-	Toy.box(cab, Vector3(2.35, 0.8, 0.9), Vector3(0, 0.6, 1.4), Toy.DARK)   # counterweight
+	Toy.box(cab, Vector3(2.35, 0.92, 0.9), Vector3(0, 0.6, 1.4), Toy.DARK)   # counterweight, taller than the deck so faces never overlap
 	Toy.stripes(cab, Vector3(2.0, 0.2, 0.05), Vector3(0, 0.75, 1.86), 6)
 	Toy.box(cab, Vector3(1.0, 1.2, 1.2), Vector3(0.6, 1.6, -0.45), Toy.GLASS)
 	Toy.box(cab, Vector3(1.1, 0.12, 1.3), Vector3(0.6, 2.25, -0.45), Toy.YELLOW)

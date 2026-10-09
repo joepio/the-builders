@@ -310,6 +310,26 @@ func _run() -> void:
 	var z0: float = p.worker.global_position.z
 	await _wait(0.8)
 	_check(p.worker.global_position.z > z0 + 2.0, "walking moves the builder")
+	# Stuck in the foundation pit: B jumps out.
+	for cc in main.site.cells:
+		cc.depth = Site.PIT_DEPTH
+		main.site._set_cell(cc)
+	await physics_frame
+	p.worker.global_position = Vector3(main.site.pit_rect.get_center().x, -0.6, main.site.pit_rect.end.y - 1.2)
+	p.worker.velocity = Vector3.ZERO
+	await _wait(0.6)
+	c.scripted = {"ly": 1.0}
+	await _wait(1.0)
+	_check(p.worker.global_position.y < -0.5, "walking into the pit wall gets you nowhere (y %.2f)" % p.worker.global_position.y)
+	var top := -9.0
+	c.scripted = {"ly": 1.0, "b": true}
+	await physics_frame
+	c.scripted = {"ly": 1.0}
+	for k in 120:
+		await physics_frame
+		top = maxf(top, p.worker.global_position.y)
+	print("    jump peak ", top)
+	_check(p.worker.global_position.y > -0.1, "B jumps out of the pit (y %.2f)" % p.worker.global_position.y)
 
 	print("")
 	if failures.is_empty(): print("ALL CHECKS PASSED")

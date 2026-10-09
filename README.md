@@ -32,7 +32,9 @@ gives three stars under 8 minutes and two under 12.
 **Y** does the getting in and out: tap it to climb into the nearest free
 machine or out again, or to pick up and put down a tool (concrete hose, foam
 gun). Hold **Y** to show what you're driving or holding in your player card.
-On foot, the left stick walks, **A** bolts a lowered module in, and **RT** or
+A floating "Y get in" marks what a tap would use, and each player's colour
+shows next to the job step their machine is for.
+On foot, the left stick walks, **B** jumps (out of the pit, say), **A** bolts a lowered module in, and **RT** or
 **A** uses a held tool. Fast machines knock builders over.
 
 | Machine | Controls |

@@ -66,6 +66,9 @@ func walk(i: Dictionary, delta: float) -> void:
 	velocity.x = move_toward(velocity.x, target.x, 40.0 * delta)
 	velocity.z = move_toward(velocity.z, target.z, 40.0 * delta)
 	if not is_on_floor(): velocity.y -= 22.0 * delta
+	elif i.get("b_pressed", false) and stunned <= 0.0:
+		# B hops: high enough to climb out of the pit or onto a pallet.
+		velocity.y = 9.0
 	else: velocity.y = maxf(velocity.y, -0.5)
 	var before := global_position
 	move_and_slide()

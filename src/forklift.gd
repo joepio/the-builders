@@ -12,6 +12,10 @@ var steer := 0.0
 var _forks: AnimatableBody3D
 var _rear_wheels: Array[Node3D] = []
 var _front_wheels: Array[Node3D] = []
+## The pallet riding on the forks. Once lifted off the ground it locks on, so
+## it doesn't slide off when the tail swings out; lowering it lets go.
+var carrying: Module = null
+var _carry := Transform3D.IDENTITY
 
 func _build() -> void:
 	title = "Forklift"
@@ -78,6 +82,7 @@ func control(i: Dictionary, delta: float) -> void:
 	drive(throttle * SPEED, yaw, delta, 7.0, 0.85, 10.0, side)
 	lift = clampf(lift - float(i.ry) * 1.4 * delta, LIFT.x, LIFT.y)
 	_pose()
+	_hold_pallet()
 	for w in _rear_wheels: w.rotation.y = -steer * 0.6 * (1.0 if not easy else 0.0)
 	for w in _front_wheels: w.rotation.y = steer * 0.5 * (1.0 if easy else 0.0)
 
@@ -85,6 +90,34 @@ func _pose() -> void:
 	carriage.position.y = lift
 	if _forks and is_inside_tree():
 		_forks.global_transform = carriage.global_transform
+
+func _hold_pallet() -> void:
+	if carrying:
+		if not is_instance_valid(carrying) or carrying.placed or carrying.is_hooked() or lift < 0.22:
+			_let_go()
+			return
+		carrying.global_transform = carriage.global_transform * _carry
+		return
+	if lift < 0.22: return
+	# Fork tops are at carriage height 0.05; a pallet deck sits 0.24 up.
+	for m in get_tree().get_nodes_in_group("liftable"):
+		if not (m is Module) or m.placed or m.is_hooked() or m.forklift: continue
+		var rel: Vector3 = carriage.global_transform.affine_inverse() * m.global_position
+		if absf(rel.x) < 0.7 and rel.z > -1.8 and rel.z < 0.1 and rel.y > -0.45 and rel.y < 0.05:
+			carrying = m
+			m.forklift = self
+			_carry = carriage.global_transform.affine_inverse() * m.global_transform
+			m.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+			m.freeze = true
+			return
+
+func _let_go() -> void:
+	if is_instance_valid(carrying):
+		carrying.forklift = null
+		if not carrying.placed and not carrying.is_hooked():
+			carrying.freeze = false
+			carrying.linear_velocity = linear_velocity
+	carrying = null
 
 func tag_height() -> float:
 	return 4.2

@@ -143,11 +143,17 @@ func set_tasks(tasks: Array) -> void:
 		var name := _label("", 26, INK)
 		name.custom_minimum_size = Vector2(290, 0)
 		var value := _label("", 26, INK)
+		value.custom_minimum_size = Vector2(66, 0)
+		# Who's on this step: a coloured chip per player whose machine or
+		# tool belongs to it.
+		var who := HBoxContainer.new()
+		who.add_theme_constant_override("separation", 4)
 		row.add_child(tick)
 		row.add_child(name)
 		row.add_child(value)
+		row.add_child(who)
 		_tasks.add_child(row)
-		_task_rows.append([tick, name, value])
+		_task_rows.append([tick, name, value, who, ""])
 	for k in tasks.size():
 		var t: Dictionary = tasks[k]
 		var row: Array = _task_rows[k]
@@ -160,6 +166,30 @@ func set_tasks(tasks: Array) -> void:
 		elif t.get("percent", false): row[2].text = "%d%%" % t.value
 		else: row[2].text = "%d/%d" % [t.value, t.total]
 		row[2].add_theme_color_override("font_color", Color(INK, 0.45) if done else Toy.ORANGE.darkened(0.2))
+		var who: Array = t.get("who", [])
+		var key := str(who.map(func(p): return str(p.name)))
+		if key != row[4]:
+			row[4] = key
+			for c in row[3].get_children(): c.queue_free()
+			for p in who: row[3].add_child(_chip(p))
+
+## A player's colour as a small round badge with their initial.
+func _chip(p: Dictionary) -> Control:
+	var chip := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = p.color
+	sb.set_corner_radius_all(14)
+	sb.border_color = INK
+	sb.set_border_width_all(3)
+	sb.content_margin_left = 7
+	sb.content_margin_right = 7
+	chip.add_theme_stylebox_override("panel", sb)
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var l := _label(str(p.name).substr(0, 1).to_upper(), 20, INK)
+	l.add_theme_color_override("font_outline_color", Color.WHITE)
+	l.add_theme_constant_override("outline_size", 4)
+	chip.add_child(l)
+	return chip
 
 func set_time(seconds: float) -> void:
 	_timer.text = "%d:%02d" % [int(seconds) / 60, int(seconds) % 60]
@@ -192,6 +222,9 @@ func set_players(players: Array) -> void:
 		if thing == null and p.get("worker") and is_instance_valid(p.worker): thing = p.worker.holding
 		var job := "on foot" if thing == null else str(thing.title)
 		v.add_child(_label(job, 20, Color(INK, 0.6)))
+		if str(p.get("task", "")) != "":
+			var task := _label("→ " + str(p.task), 17, p.color.darkened(0.35))
+			v.add_child(task)
 		if thing != null and not p.get("show_controls", false):
 			var tip := HBoxContainer.new()
 			tip.add_theme_constant_override("separation", 6)

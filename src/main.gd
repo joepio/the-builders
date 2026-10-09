@@ -144,29 +144,22 @@ func _respawn_worker(p: Dictionary) -> void:
 	p.worker = w
 	p.machine = null
 
-func _enter_machine(p: Dictionary) -> void:
-	var w: Worker = p.worker
+## The free machine a builder would climb into, or null.
+func _nearest_machine(w: Worker) -> Machine:
 	var best: Machine = null
 	var best_d := 4.2
 	for m in site.machines:
 		if not m.driver.is_empty(): continue
 		var d := Vector2(m.global_position.x - w.global_position.x, m.global_position.z - w.global_position.z).length()
 		if m is Crane: d -= 1.0
-		elif m is DumpTruck or m is Excavator: d -= 0.6
+		elif m is DumpTruck or m is Excavator or m is ConcreteTruck: d -= 0.6
 		if d < best_d:
 			best_d = d
 			best = m
-	if best == null: return
-	p.machine = best
-	best.enter(p)
-	w.visible = false
-	w.process_mode = Node.PROCESS_MODE_DISABLED
-	w.get_child(0).disabled = true
-	hud.set_players(players)
+	return best
 
-## Pick up the nearest free tool within reach. Returns true if it did.
-func _grab_tool(p: Dictionary) -> bool:
-	var w: Worker = p.worker
+## The free tool a builder would pick up, or null.
+func _nearest_tool(w: Worker) -> Tool:
 	var best: Tool = null
 	var best_d := 2.2
 	for t in get_tree().get_nodes_in_group("tool"):
@@ -176,6 +169,57 @@ func _grab_tool(p: Dictionary) -> bool:
 		if d < best_d:
 			best_d = d
 			best = t
+	return best
+
+## A floating "Y get in" over whatever a tap of Y would use, per builder.
+func _update_prompt(p: Dictionary) -> void:
+	var label: Label3D = p.get("prompt")
+	if label == null or not is_instance_valid(label):
+		label = Toy.label(site, "", Vector3.ZERO, p.color, 54)
+		label.top_level = true
+		p["prompt"] = label
+	var w: Worker = p.worker
+	label.visible = false
+	if p.machine != null or w.holding != null or w.stunned > 0.0: return
+	var tool := _nearest_tool(w)
+	if tool:
+		label.text = "Y  pick up"
+		label.global_position = tool.grab_point() + Vector3(0, 1.6, 0)
+		label.visible = true
+		return
+	var m := _nearest_machine(w)
+	if m:
+		label.text = "Y  get in"
+		label.global_position = m.global_position + Vector3(0, m.tag_height() + 0.9, 0)
+		label.visible = true
+
+func _enter_machine(p: Dictionary) -> void:
+	var w: Worker = p.worker
+	var best := _nearest_machine(w)
+	if best == null: return
+	p.machine = best
+	best.enter(p)
+	w.visible = false
+	w.process_mode = Node.PROCESS_MODE_DISABLED
+	w.get_child(0).disabled = true
+	hud.set_players(players)
+
+## Which job step a player's machine or tool is for, as a row in
+## Site.tasks(), or -1 on foot with empty hands.
+func _task_for(p: Dictionary) -> int:
+	var thing: Variant = p.machine
+	if thing == null and p.worker and is_instance_valid(p.worker): thing = p.worker.holding
+	if thing is Bulldozer: return 0
+	if thing is Excavator or thing is DumpTruck: return 1
+	if thing is ConcreteTruck or thing is Hose: return 2
+	if thing is Forklift or thing is Crane: return 3
+	if thing is FoamGun: return 4
+	return -1
+
+## Pick up the nearest free tool within reach. Returns true if it did.
+func _grab_tool(p: Dictionary) -> bool:
+	var w: Worker = p.worker
+	var best := _nearest_tool(w)
 	if best == null: return false
 	best.grab(w)
 	hud.set_players(players)
@@ -251,6 +295,7 @@ func _physics_process(delta: float) -> void:
 			elif w.stunned <= 0.0:
 				if y_tap and not _grab_tool(p): _enter_machine(p)
 				elif i.a_pressed: _try_bolt(p)
+		_update_prompt(p)
 		if i.start_pressed and not managed and not demo: _toggle_pause()
 		if done_time >= 0.0 and not managed and i.a_pressed and job_time - done_time > 2.0: _new_site()
 	if running and done_time < 0.0: job_time += delta
@@ -261,7 +306,16 @@ func _physics_process(delta: float) -> void:
 			_new_site()
 
 func _process(_delta: float) -> void:
-	hud.set_tasks(site.tasks())
+	var tasks: Array = site.tasks()
+	for t in tasks: t["who"] = []
+	for p in players:
+		var k := _task_for(p)
+		var label: String = tasks[k].label if k >= 0 else ""
+		if label != str(p.get("task", "")):
+			p["task"] = label
+			hud.set_players(players)
+		if k >= 0: tasks[k].who.append(p)
+	hud.set_tasks(tasks)
 	hud.set_time(done_time if done_time >= 0.0 else job_time)
 
 ## Standalone drop-in: any pad or keyboard half pressing A joins.
