@@ -9,6 +9,7 @@ var bed: Node3D
 var tilt := 0.0
 var steer := 0.0
 var _bed_body: AnimatableBody3D
+var _tailgate: CollisionShape3D
 var _front_wheels: Array[Node3D] = []
 
 func _build() -> void:
@@ -45,7 +46,7 @@ func _build() -> void:
 	for x in [-1.1, 1.1]:
 		Toy.shape(_bed_body, Vector3(0.15, 1.1, 3.4), Vector3(x, 0.55, -1.7))
 	Toy.shape(_bed_body, Vector3(2.3, 1.4, 0.15), Vector3(0, 0.7, -3.4))
-	Toy.shape(_bed_body, Vector3(2.3, 0.4, 0.15), Vector3(0, 0.25, 0.0))
+	_tailgate = Toy.shape(_bed_body, Vector3(2.3, 0.4, 0.15), Vector3(0, 0.25, 0.0))
 	_bed_body.physics_material_override = PhysicsMaterial.new()
 	_bed_body.physics_material_override.friction = 0.35
 	add_child(_bed_body)
@@ -62,7 +63,9 @@ func control(i: Dictionary, delta: float) -> void:
 	var yaw := -steer * v * 0.35
 	drive(throttle * SPEED, yaw, delta, 5.0, 0.8, 8.0, -1.4 * yaw)
 	var tipping: bool = i.y or i.rb
-	tilt = move_toward(tilt, 1.15 if tipping else 0.0, (0.5 if tipping else 0.8) * delta)
+	tilt = move_toward(tilt, 1.2 if tipping else 0.0, (0.6 if tipping else 0.8) * delta)
+	# The tailgate swings open once the bed is up.
+	_tailgate.disabled = tilt > 0.3
 	_pose()
 	for w in _front_wheels: w.rotation.y = -steer * 0.5
 

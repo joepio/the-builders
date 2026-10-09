@@ -154,7 +154,6 @@ func _enter_machine(p: Dictionary) -> void:
 			best = m
 	if best == null: return
 	p.machine = best
-	p["hint_until"] = Time.get_ticks_msec() / 1000.0 + 12.0
 	best.enter(p)
 	w.visible = false
 	w.process_mode = Node.PROCESS_MODE_DISABLED
@@ -165,7 +164,7 @@ func _leave_machine(p: Dictionary) -> void:
 	var m: Machine = p.machine
 	if m == null: return
 	m.leave()
-	p.erase("hint_until")
+	p["show_controls"] = false
 	var w: Worker = p.worker
 	w.global_position = m.exit_point() + Vector3(0, 0.3, 0)
 	w.global_position.y = maxf(w.global_position.y, 0.3)
@@ -181,6 +180,11 @@ func _physics_process(delta: float) -> void:
 	if not managed and not demo: _drop_in()
 	for p in players:
 		var i: Dictionary = p.controls.read()
+		# Holding X shows this machine's controls in the player's card.
+		var show: bool = p.machine != null and (bool(i.x) or _pose and players.find(p) < 2)
+		if show != bool(p.get("show_controls", false)):
+			p["show_controls"] = show
+			hud.set_players(players)
 		if p.machine:
 			if i.b_pressed: _leave_machine(p)
 		else:
@@ -196,11 +200,6 @@ func _physics_process(delta: float) -> void:
 			_new_site()
 
 func _process(_delta: float) -> void:
-	var now := Time.get_ticks_msec() / 1000.0
-	for p in players:
-		if p.has("hint_until") and now > float(p.hint_until):
-			p.erase("hint_until")
-			hud.set_players(players)
 	hud.set_tasks(site.tasks())
 	hud.set_time(done_time if done_time >= 0.0 else job_time)
 

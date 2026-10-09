@@ -29,8 +29,8 @@ gives three stars under 8 minutes and two under 12.
 ## Controls
 
 On foot: left stick walks, **A** climbs into the nearest free machine, **B**
-climbs out. Fast machines knock builders over. The player strip shows each
-machine's controls for a few seconds after you climb in.
+climbs out. Fast machines knock builders over. Hold **X** in a machine to
+show its controls in your player card.
 
 | Machine | Controls |
 | --- | --- |
