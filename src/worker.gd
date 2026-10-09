@@ -12,6 +12,7 @@ var _body: Node3D
 var _stars: Node3D
 var _walk := 0.0
 var _next_step := 0.7
+var holding: Tool = null
 var _name_tag: Label3D
 
 func setup(p: Dictionary) -> void:
@@ -92,8 +93,16 @@ func walk(i: Dictionary, delta: float) -> void:
 		global_position = player.spawn
 		velocity = Vector3.ZERO
 
+func facing() -> Vector3:
+	return Vector3(-sin(_body.rotation.y), 0, -cos(_body.rotation.y))
+
+## Where a held tool sits: in front of the chest.
+func hand() -> Vector3:
+	return global_position + facing() * 0.75 + Vector3(0, 1.2, 0)
+
 func bonk(push: Vector3) -> void:
 	if stunned > 0.0: return
+	if holding: holding.drop()
 	stunned = 1.6
 	velocity = Vector3(push.x, 0, push.z).normalized() * 9.0 + Vector3.UP * 7.0
 	_body.rotation.x = -1.2

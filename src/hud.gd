@@ -187,9 +187,12 @@ func set_players(players: Array) -> void:
 		name_label.add_theme_constant_override("outline_size", 8)
 		name_label.add_theme_color_override("font_outline_color", INK)
 		v.add_child(name_label)
-		var job := "on foot" if p.machine == null else str(p.machine.title)
+		# What they're operating: a machine, a tool in hand, or nothing.
+		var thing: Variant = p.machine
+		if thing == null and p.get("worker") and is_instance_valid(p.worker): thing = p.worker.holding
+		var job := "on foot" if thing == null else str(thing.title)
 		v.add_child(_label(job, 20, Color(INK, 0.6)))
-		if p.machine != null and not p.get("show_controls", false):
+		if thing != null and not p.get("show_controls", false):
 			var tip := HBoxContainer.new()
 			tip.add_theme_constant_override("separation", 6)
 			tip.add_child(PadIcon.make("X", _font))
@@ -197,11 +200,11 @@ func set_players(players: Array) -> void:
 			hold.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			tip.add_child(hold)
 			v.add_child(tip)
-		if p.machine != null and p.get("show_controls", false):
+		if thing != null and p.get("show_controls", false):
 			var rows := VBoxContainer.new()
 			rows.add_theme_constant_override("separation", 3)
 			v.add_child(rows)
-			for row in p.machine.hint:
+			for row in thing.hint:
 				var line := HBoxContainer.new()
 				line.add_theme_constant_override("separation", 4)
 				for key in row[0]: line.add_child(PadIcon.make(key, _font))

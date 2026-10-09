@@ -101,9 +101,9 @@ func _run() -> void:
 
 	print("crane")
 	site = await _fresh()
-	site.cheat("dug")
-	await _wait(3.8)
-	_check(site.poured, "a dug pit gets its concrete")
+	site.cheat("poured")
+	await _wait(2.0)
+	_check(site.poured, "a pit full of concrete sets into the slab")
 	var crane: Crane = site.crane
 	var slot: Dictionary = site.slots[0]
 	mod = null
@@ -183,6 +183,44 @@ func _run() -> void:
 	for b in get_nodes_in_group("clump"):
 		if b.global_position.y > 1.0: in_bed += 1
 	_check(in_bed == 0, "tipping the bed empties it (%d left)" % in_bed)
+
+	print("concrete")
+	site = await _fresh()
+	site.cheat("dug")
+	await _wait(0.2)
+	var mixer: ConcreteTruck = _machine(site, ConcreteTruck)
+	mixer.global_transform = Transform3D(Basis.IDENTITY, Vector3(4.0, 0.05, -3.0))
+	await _wait(0.3)
+	await _hold(mixer, {"y": true}, 0.1)
+	_check(mixer.pumping, "Y starts the pump")
+	var builder := Worker.new()
+	builder.setup({"name": "Pourer", "color": Color.RED})
+	site.add_child(builder)
+	builder.global_position = Vector3(-1.5, 0.3, -3.0)
+	builder._body.rotation.y = PI / 2
+	await _wait(0.5)
+	mixer.hose.grab(builder)
+	_check(builder.holding == mixer.hose, "a builder can pick up the hose")
+	for k in 360:
+		mixer.hose.use(true, 1.0 / 120.0)
+		await physics_frame
+	_check(site.pour_progress() > 0.05, "the hose pours concrete into the pit (%.2f)" % site.pour_progress())
+	builder.global_position = Vector3(9.0, 0.3, 6.0)
+	for k in 120:
+		mixer.hose.use(true, 1.0 / 120.0)
+		await physics_frame
+	_check(site.splats.size() > 0, "missing the pit splats concrete on the sand")
+	var reach := Vector2(builder.global_position.x - mixer.hose.anchor().x, builder.global_position.z - mixer.hose.anchor().z).length()
+	builder.global_position = Vector3(-14.0, 0.3, 8.0)
+	await _wait(0.3)
+	reach = Vector2(builder.global_position.x - mixer.hose.anchor().x, builder.global_position.z - mixer.hose.anchor().z).length()
+	_check(reach < Hose.LENGTH + 0.5, "the hose holds a builder back (%.1f m)" % reach)
+	mixer.set_pumping(false)
+	mixer.hose.use(true, 0.5)
+	_check(not mixer.hose.flowing, "nothing flows with the pump off")
+	for c in site.cells: site.pour_at(Vector3(c.x, -0.5, c.z), 1.0)
+	await _wait(2.0)
+	_check(site.poured, "a full pit sets into the slab")
 
 	print("players")
 	if _site:

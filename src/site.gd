@@ -20,12 +20,14 @@ const PAD := Vector3(-8, 0, 6)
 const YARD := Vector3(16, 0, 8)
 const SPAWN := Vector3(-18, 0, 10)
 const GATE := Vector2(5.0, 13.0)   ## x range of the gate in the bottom fence
+const WET := Color("#565855")       ## Fresh concrete, dark and wet
 
 var pit_rect := Rect2(HOUSE.x - 3, HOUSE.z - 3, 6, 6)
 var cells: Array[Dictionary] = []
 var slab: AnimatableBody3D
 var poured := false
-var pouring := false
+var pouring := false   ## Concrete is curing: the slab is about to set.
+var splats: Array[Node3D] = []
 var slots: Array[Dictionary] = []
 var machines: Array[Machine] = []
 var ruts: Ruts
@@ -131,7 +133,7 @@ func _build_pit() -> void:
 		Toy.box(self, size, pos, Color("#8b5e36"))
 	for ix in PIT_CELLS:
 		for iz in PIT_CELLS:
-			var c := {"x": r.position.x + CELL * (ix + 0.5), "z": r.position.y + CELL * (iz + 0.5), "depth": 0.0}
+			var c := {"x": r.position.x + CELL * (ix + 0.5), "z": r.position.y + CELL * (iz + 0.5), "depth": 0.0, "concrete": 0.0}
 			var body := StaticBody3D.new()
 			add_child(body)
 			var shape := Toy.shape(body, Vector3(CELL, PIT_DEPTH, CELL), Vector3(c.x, -PIT_DEPTH / 2.0, c.z))
@@ -140,6 +142,9 @@ func _build_pit() -> void:
 			c["shape"] = shape
 			c["mesh"] = mesh
 			c["top"] = top
+			var wet := Toy.box(self, Vector3(CELL, PIT_DEPTH, CELL), Vector3(c.x, -PIT_DEPTH / 2.0, c.z), Toy.mat(WET, 0.2))
+			wet.visible = false
+			c["wet"] = wet
 			cells.append(c)
 	# Pegs and string marking the future house.
 	for corner in [Vector2(r.position.x, r.position.y), Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.end.y)]:
@@ -177,13 +182,63 @@ func _cell_at(p: Vector3) -> Dictionary:
 func dig_at(p: Vector3, amount: float) -> float:
 	if poured or pouring: return 0.0
 	var c := _cell_at(p)
-	if c.is_empty(): return 0.0
+	if c.is_empty() or float(c.concrete) > 0.0: return 0.0
 	var top := -float(c.depth)
 	if p.y > top + 0.3 or float(c.depth) >= PIT_DEPTH: return 0.0
 	var take := minf(amount, (PIT_DEPTH - float(c.depth)) / DIG_PER_LOAD)
 	c.depth = minf(PIT_DEPTH, float(c.depth) + take * DIG_PER_LOAD)
 	_set_cell(c)
 	return take
+
+## Ground height under a point: the pit floor, dirt or concrete in the pit.
+func ground_at(p: Vector3) -> float:
+	var c := _cell_at(p)
+	if c.is_empty(): return 0.0
+	if poured: return 0.0
+	return -PIT_DEPTH + maxf(PIT_DEPTH - float(c.depth), float(c.concrete) * PIT_DEPTH)
+
+## The hose pours `amount` (cells) at `p`. Returns false when it misses:
+## outside the pit, or into a cell that isn't dug out yet or is already full.
+func pour_at(p: Vector3, amount: float) -> bool:
+	if poured or pouring: return false
+	var c := _cell_at(p)
+	if c.is_empty() or float(c.depth) < PIT_DEPTH - 0.02: return false
+	if float(c.concrete) >= 1.0:
+		# Full: it slops over into the emptiest dug neighbour.
+		var best: Dictionary = {}
+		for o in cells:
+			if absf(float(o.x) - float(c.x)) > CELL * 1.1 or absf(float(o.z) - float(c.z)) > CELL * 1.1: continue
+			if float(o.depth) < PIT_DEPTH - 0.02 or float(o.concrete) >= 1.0: continue
+			if best.is_empty() or float(o.concrete) < float(best.concrete): best = o
+		if best.is_empty(): return false
+		c = best
+	c.concrete = minf(1.0, float(c.concrete) + amount)
+	var h := maxf(0.02, float(c.concrete) * PIT_DEPTH)
+	c.wet.visible = true
+	c.wet.scale = Vector3(1, h / PIT_DEPTH, 1)
+	c.wet.position = Vector3(c.x, -PIT_DEPTH + h / 2.0, c.z)
+	return true
+
+func pour_progress() -> float:
+	var total := 0.0
+	for c in cells: total += float(c.concrete)
+	return total / cells.size()
+
+## Concrete that missed the pit: a grey blob on the sand, for the shame.
+func splat(p: Vector3) -> void:
+	if splats.size() > 80: return
+	var m := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = _rng.randf_range(0.25, 0.45)
+	cm.bottom_radius = cm.top_radius + 0.08
+	cm.height = 0.08
+	cm.radial_segments = 10
+	cm.rings = 1
+	m.mesh = cm
+	m.material_override = Toy.mat(WET, 0.35)
+	add_child(m)
+	m.global_position = Vector3(p.x + _rng.randf_range(-0.3, 0.3), ground_at(p) + 0.04, p.z + _rng.randf_range(-0.3, 0.3))
+	splats.append(m)
 
 func pit_progress() -> float:
 	var total := 0.0
@@ -485,6 +540,7 @@ func _spawn_machines() -> void:
 		[Forklift, Vector3(6.5, 0, 6.0), -PI / 2],
 		[Forklift, Vector3(6.5, 0, 9.6), -PI / 2],
 		[Crane, CRANE_AT, 0.0],
+		[ConcreteTruck, Vector3(12.0, 0, 0.5), 0.0],
 	]
 	for d in defs:
 		var m: Machine = d[0].new()
@@ -513,8 +569,8 @@ func tasks() -> Array:
 	var house := placed_count()
 	return [
 		{"label": "Clear the junk", "value": rubble_cleared, "total": rubble_total, "done": rubble_cleared >= rubble_total},
-		{"label": "Dig the foundation pit", "value": int(round(pit_progress() * 100.0)), "total": 100, "done": poured or pouring, "percent": true},
-		{"label": "Pour the concrete", "value": 1 if poured else 0, "total": 1, "done": poured, "auto": true},
+		{"label": "Dig the foundation pit", "value": int(round(pit_progress() * 100.0)), "total": 100, "done": pit_progress() >= 0.999 or poured, "percent": true},
+		{"label": "Pour the concrete", "value": 100 if poured else int(floor(pour_progress() * 100.0)), "total": 100, "done": poured, "percent": true},
 		{"label": "Stack the house", "value": house, "total": slots.size(), "done": house >= slots.size()},
 	]
 
@@ -532,7 +588,7 @@ func _physics_process(delta: float) -> void:
 			b.queue_free()
 		elif pit_rect.has_point(xz) and p.y < -0.05 and not poured and not pouring:
 			var c := _cell_at(p)
-			if not c.is_empty() and p.y < -float(c.depth) + 0.6 and b.linear_velocity.length() < 1.5:
+			if not c.is_empty() and float(c.concrete) <= 0.0 and p.y < -float(c.depth) + 0.6 and b.linear_velocity.length() < 1.5:
 				c.depth = maxf(0.0, float(c.depth) - float(b.get_meta("amount", 0.25)) * DIG_PER_LOAD)
 				_set_cell(c)
 				b.queue_free()
@@ -570,22 +626,26 @@ func _physics_process(delta: float) -> void:
 				if s.kind == "roof" and s.filled != null: need_roof = false
 			_spawn_module("roof" if need_roof else "module", YARD + Vector3(_rng.randf_range(-3, 3), 0, _rng.randf_range(-2, 2)), 4.0)
 			message.emit("Delivery!")
-	if not poured and not pouring and pit_progress() >= 0.999:
+	if not poured and not pouring and pour_progress() >= 0.999:
 		_pour()
 	_check_slots()
 
+## All cells full: the wet concrete sets into the slab.
 func _pour() -> void:
 	pouring = true
-	message.emit("Pit dug! Pouring concrete...")
+	message.emit("Pit full! Concrete setting...")
 	for c in cells:
 		c.shape.disabled = true
 		c.mesh.visible = false
 		c.top.visible = false
-	slab.visible = true
 	var r := pit_rect
+	slab.position = Vector3(r.get_center().x, -PIT_DEPTH / 2.0 - 0.01, r.get_center().y)
 	var tw := create_tween()
-	tw.tween_property(slab, "position", Vector3(r.get_center().x, -PIT_DEPTH / 2.0, r.get_center().y), 3.0).set_trans(Tween.TRANS_SINE)
+	tw.tween_interval(1.5)
 	tw.tween_callback(func() -> void:
+		slab.visible = true
+		slab.position.y = -PIT_DEPTH / 2.0
+		for c in cells: c.wet.visible = false
 		pouring = false
 		poured = true
 		message.emit("Foundation ready! Crane the modules on")
@@ -601,12 +661,13 @@ func _finish() -> void:
 
 ## Demo/screenshot helper: jump the job forward.
 func cheat(stage: String) -> void:
-	if stage in ["dug", "built", "half"]:
+	if stage in ["dug", "poured", "built", "half"]:
 		for c in cells:
 			c.depth = PIT_DEPTH
 			_set_cell(c)
+			if stage == "poured": pour_at(Vector3(c.x, -0.5, c.z), 1.0)
 		for b in get_tree().get_nodes_in_group("rubble"):
-			if stage != "dug" or randf() < 0.5:
+			if stage not in ["dug", "poured"] or randf() < 0.5:
 				rubble_cleared += 1
 				b.remove_from_group("rubble")
 				b.queue_free()

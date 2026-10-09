@@ -64,6 +64,7 @@ func _parse_args() -> void:
 		elif arg.begins_with("--shot-time="): _shot_time = float(arg.substr(12))
 		elif arg.begins_with("--stage="): _stage = arg.substr(8)
 		elif arg == "--pose": _pose = true
+		elif arg == "--pour-pose": _pour_pose.call_deferred()
 		elif arg.begins_with("--cam="):
 			var parts := arg.substr(6).split(",")
 			_cam_target = Vector3(float(parts[0]), 0, float(parts[1]))
@@ -162,6 +163,23 @@ func _enter_machine(p: Dictionary) -> void:
 	w.get_child(0).disabled = true
 	hud.set_players(players)
 
+## Pick up the nearest free tool within reach. Returns true if it did.
+func _grab_tool(p: Dictionary) -> bool:
+	var w: Worker = p.worker
+	var best: Tool = null
+	var best_d := 2.2
+	for t in get_tree().get_nodes_in_group("tool"):
+		if not t.can_grab(): continue
+		var g: Vector3 = t.grab_point()
+		var d := Vector2(g.x - w.global_position.x, g.z - w.global_position.z).length()
+		if d < best_d:
+			best_d = d
+			best = t
+	if best == null: return false
+	best.grab(w)
+	hud.set_players(players)
+	return true
+
 func _leave_machine(p: Dictionary) -> void:
 	var m: Machine = p.machine
 	if m == null: return
@@ -183,15 +201,22 @@ func _physics_process(delta: float) -> void:
 	for p in players:
 		var i: Dictionary = p.controls.read()
 		# Holding X shows this machine's controls in the player's card.
-		var show: bool = p.machine != null and (bool(i.x) or _pose and (players.find(p) < 2 or p.machine is Bulldozer))
+		var show: bool = (p.machine != null or p.worker.holding != null) and (bool(i.x) or _pose and (players.find(p) < 2 or p.machine is Bulldozer))
 		if show != bool(p.get("show_controls", false)):
 			p["show_controls"] = show
 			hud.set_players(players)
 		if p.machine:
 			if i.b_pressed: _leave_machine(p)
 		else:
-			p.worker.walk(i, delta)
-			if i.a_pressed and p.worker.stunned <= 0.0: _enter_machine(p)
+			var w: Worker = p.worker
+			w.walk(i, delta)
+			if w.holding:
+				w.holding.use(bool(i.a) or float(i.rt) > 0.3, delta)
+				if i.b_pressed:
+					w.holding.drop()
+					hud.set_players(players)
+			elif i.a_pressed and w.stunned <= 0.0:
+				if not _grab_tool(p): _enter_machine(p)
 		if i.start_pressed and not managed and not demo: _toggle_pause()
 		if done_time >= 0.0 and not managed and i.a_pressed and job_time - done_time > 2.0: _new_site()
 	if running and done_time < 0.0: job_time += delta
@@ -352,6 +377,8 @@ func _demo_drive(delta: float) -> void:
 			s.ly = 0.6 if fmod(t, 6.0) < 2.0 else -0.4
 			s.rx = -0.8 if fmod(t, 6.0) < 2.5 else 0.6
 			s.lx = 0.5 if fmod(t, 6.0) > 3.0 else -0.2
+		elif p.machine == null and p.worker.holding:
+			s.rt = 1.0
 		elif p.machine is Crane:
 			s.lx = 0.35
 			s.ry = -0.4 if t < 1.0 else 0.0
@@ -370,6 +397,27 @@ func _demo_drive(delta: float) -> void:
 			s.ly = cos(t * 0.5 + p.spawn.z)
 
 ## Screenshot helper: freeze a busy moment mid-job.
+## Screenshot helper: the pit dug, the mixer parked and a builder pouring.
+func _pour_pose() -> void:
+	await get_tree().physics_frame
+	site.cheat("dug")
+	var mixer: ConcreteTruck
+	for m in site.machines: if m is ConcreteTruck: mixer = m
+	mixer.global_transform = Transform3D(Basis(Vector3.UP, 0.5), Vector3(4.2, 0.02, -5.5))
+	mixer.set_pumping(true)
+	for k in site.cells.size():
+		site.pour_at(Vector3(site.cells[k].x, -0.5, site.cells[k].z), [1.0, 0.7, 0.3, 1.0, 0.8, 0.2, 0.9, 0.5, 0.0][k])
+	var p: Dictionary
+	for q in players: if q.machine == null: p = q
+	if p.is_empty(): return
+	var w: Worker = p.worker
+	mixer.hose.grab(w)
+	hud.set_players(players)
+	while is_instance_valid(w):
+		w.global_position = Vector3(1.6, 0.0, -2.2)
+		w._body.rotation.y = 1.15
+		await get_tree().physics_frame
+
 func _pose_action() -> void:
 	await get_tree().physics_frame
 	var by_type := {}
