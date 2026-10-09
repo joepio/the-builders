@@ -1,0 +1,29 @@
+{
+  "id": "the-builders",
+  "title": "The Builders",
+  "tagline": "Couch co-op construction chaos. Dig the pit, haul the dirt, forklift the modules and crane a house together, with machines that don't quite want to cooperate.",
+  "developer": "Joep Meindertsma",
+  "players": {
+    "min": 1,
+    "max": 8,
+    "best": 4
+  },
+  "match_minutes": 10,
+  "price": "free",
+  "tags": [
+    "co-op",
+    "construction",
+    "machines",
+    "party",
+    "godot"
+  ],
+  "emoji": "🏗️",
+  "color": "#ffc21a",
+  "integration": {
+    "level": "integrated",
+    "protocol": 1
+  },
+  "links": {
+    "source": "https://github.com/joepio/the-builders"
+  }
+}

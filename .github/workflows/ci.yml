@@ -1,0 +1,27 @@
+name: Checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  gamenight-sdk:
+    uses: ontola/gamenight/.github/workflows/godot-sdk-check.yml@main
+  job-and-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned Godot
+        run: |
+          curl -sSL -o "$RUNNER_TEMP/godot.zip" https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip
+          echo "87f6e6be292929e363d15ed9052f277b2ba4e95ed994e1e099048097be2dfd03  $RUNNER_TEMP/godot.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v4.5.2-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Import
+        run: timeout 300 "$GODOT" --headless --path . --import || true
+      - name: Machines and job steps
+        run: timeout 600 "$GODOT" --headless --path . --script tests/job_check.gd
+      - name: Managed lifecycle against a fake host
+        run: python3 tests/lifecycle.py --godot "$GODOT"
