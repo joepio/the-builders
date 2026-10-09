@@ -62,6 +62,7 @@ func _run() -> void:
 	await _hold(ex, {"rx": -1.0}, 1.0)
 	_check(ex.carried > 0.4, "scooping fills the bucket (%.2f)" % ex.carried)
 	_check(site.pit_progress() > 0.01, "the pit gets deeper (%.1f%%)" % (site.pit_progress() * 100))
+	_check(site.ground_at(ex.tip.global_position) < -0.2, "the bucket leaves a hole in the sand (%.2f)" % site.ground_at(ex.tip.global_position))
 	await _hold(ex, {"ry": -1.0}, 1.2)
 	await _hold(ex, {"lx": 1.0}, 2.0)
 	await _hold(ex, {"rx": 1.0}, 1.6)
@@ -175,6 +176,20 @@ func _run() -> void:
 	yaw0 = dz.global_rotation.y
 	await _hold(dz, {"lt": 1.0, "rb": true}, 1.0)
 	_check(absf(angle_difference(yaw0, dz.global_rotation.y)) > 0.8, "opposite tracks spin on the spot")
+	# Blade down into the sand: it scrapes and builds a berm ahead.
+	dz.respawn()
+	await _wait(0.4)
+	dz.lift = Bulldozer.LIFT.x
+	var start := dz.global_position
+	site.terrain.add(start + (-dz.global_transform.basis.z) * 4.0, 2.5, 1.6)
+	await _wait(0.5)
+	var hill := start + (-dz.global_transform.basis.z) * 4.0
+	var h0: float = site.ground_at(hill)
+	await _hold(dz, {"lt": 1.0, "rt": 1.0}, 2.0)
+	_check(dz.global_position.y < 0.15, "the dozer stays on the ground instead of climbing its own berm (y %.2f)" % dz.global_position.y)
+	_check(site.ground_at(hill) < h0 - 0.1, "the blade scrapes a pile flat (%.2f -> %.2f)" % [h0, site.ground_at(hill)])
+	dz.respawn()
+	await _wait(0.5)
 	var edge0: float = (dz.blade.global_transform * Vector3(0, -0.75, -1.45)).y
 	await _hold(dz, {"ry": -1.0}, 1.0)
 	var edge1: float = (dz.blade.global_transform * Vector3(0, -0.75, -1.45)).y
@@ -320,7 +335,7 @@ func _run() -> void:
 	await _wait(0.6)
 	c.scripted = {"ly": 1.0}
 	await _wait(1.0)
-	_check(p.worker.global_position.y < -0.5, "walking into the pit wall gets you nowhere (y %.2f)" % p.worker.global_position.y)
+	_check(p.worker.global_position.y < -0.4, "walking into the pit wall gets you nowhere (y %.2f)" % p.worker.global_position.y)
 	var top := -9.0
 	c.scripted = {"ly": 1.0, "b": true}
 	await physics_frame

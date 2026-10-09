@@ -12,8 +12,8 @@ const WORLD := Rect2(-70, -50, 140, 100)
 const HOUSE := Vector3(-3, 0, -3)
 const PIT_CELLS := 3
 const CELL := 2.0
-const PIT_DEPTH := 1.0
-const DIG_PER_LOAD := 0.5        ## Metres of one cell removed by a full bucket.
+const PIT_DEPTH := 0.8
+const VOL_PER_LOAD := 1.2        ## Cubic metres of sand in a full bucket.
 const DUMP := Rect2(15.5, -11.5, 6.0, 5.0)
 const CRANE_AT := Vector3(-13, 0, -10)
 const PAD := Vector3(-8, 0, 6)
@@ -35,6 +35,11 @@ var tools: Array[Tool] = []
 var slots: Array[Dictionary] = []
 var machines: Array[Machine] = []
 var ruts: Ruts
+var terrain: Terrain
+var _tufts: MultiMeshInstance3D
+var _tuft_rest: Array = []    ## Each site tuft's transform on untouched ground.
+var _tufts_seen := -1
+var _cells_timer := 0.0
 var crane: Crane
 var rubble_total := 0
 var rubble_cleared := 0
@@ -111,7 +116,6 @@ func _slab(parent: Node3D, r: Rect2, top: float, depth: float, color: Variant, c
 		Toy.shape(body, size, pos)
 
 func _build_ground() -> void:
-	var holes := [pit_rect, DUMP]
 	var grass := Decor.grass()
 	var sand := Decor.sand()
 	for r in cover(WORLD, [SITE]): _slab(self, r, 0.0, 3.0, grass, true)
@@ -119,34 +123,23 @@ func _build_ground() -> void:
 	add_child(ruts)
 	ruts.setup(SITE)
 	ruts.apply(sand)
-	for r in cover(SITE, holes): _slab(self, r, 0.0, 3.0, sand, true)
+	# The whole site is diggable sand; bedrock underneath catches anything
+	# that would slip through.
+	terrain = Terrain.new()
+	add_child(terrain)
+	terrain.setup(SITE, sand, [DUMP])
+	var bedrock := StaticBody3D.new()
+	add_child(bedrock)
+	Toy.shape(bedrock, Vector3(SITE.size.x, 1.0, SITE.size.y), Vector3(SITE.get_center().x, Terrain.LOWEST - 0.6, SITE.get_center().y))
 	# Road outside the gate.
 	Toy.box(self, Vector3(8, 0.04, 36), Vector3((GATE.x + GATE.y) / 2.0, 0.02, SITE.end.y + 18), Color("#5b5f66"))
 
 func _build_pit() -> void:
-	var floor_body := StaticBody3D.new()
-	add_child(floor_body)
 	var r := pit_rect
-	Toy.box(self, Vector3(r.size.x, 0.4, r.size.y), Vector3(r.get_center().x, -PIT_DEPTH - 0.2, r.get_center().y), Toy.DIRT_DARK)
-	Toy.shape(floor_body, Vector3(r.size.x, 0.4, r.size.y), Vector3(r.get_center().x, -PIT_DEPTH - 0.2, r.get_center().y))
-	# Pit walls get a darker skin so the hole reads from above.
-	for side in 4:
-		var horizontal := side < 2
-		var size := Vector3(r.size.x, PIT_DEPTH, 0.04) if horizontal else Vector3(0.04, PIT_DEPTH, r.size.y)
-		var pos := Vector3(r.get_center().x, -PIT_DEPTH / 2.0, r.position.y + 0.02 if side == 0 else r.end.y - 0.02) if horizontal \
-			else Vector3(r.position.x + 0.02 if side == 2 else r.end.x - 0.02, -PIT_DEPTH / 2.0, r.get_center().y)
-		Toy.box(self, size, pos, Color("#8b5e36"))
 	for ix in PIT_CELLS:
 		for iz in PIT_CELLS:
 			var c := {"x": r.position.x + CELL * (ix + 0.5), "z": r.position.y + CELL * (iz + 0.5), "depth": 0.0, "concrete": 0.0}
-			var body := StaticBody3D.new()
-			add_child(body)
-			var shape := Toy.shape(body, Vector3(CELL, PIT_DEPTH, CELL), Vector3(c.x, -PIT_DEPTH / 2.0, c.z))
-			var mesh := Toy.box(self, Vector3(CELL, PIT_DEPTH, CELL), Vector3(c.x, -PIT_DEPTH / 2.0, c.z), Toy.DIRT)
-			var top := Toy.box(self, Vector3(CELL - 0.06, 0.04, CELL - 0.06), Vector3(c.x, 0.02, c.z), Color("#b98552"))
-			c["shape"] = shape
-			c["mesh"] = mesh
-			c["top"] = top
+			c["rect"] = Rect2(c.x - CELL / 2.0, c.z - CELL / 2.0, CELL, CELL)
 			var wet := Toy.box(self, Vector3(CELL, PIT_DEPTH, CELL), Vector3(c.x, -PIT_DEPTH / 2.0, c.z), Toy.mat(WET, 0.2))
 			wet.visible = false
 			c["wet"] = wet
@@ -162,21 +155,9 @@ func _build_pit() -> void:
 	slab.position = Vector3(r.get_center().x, -PIT_DEPTH * 1.5 - 0.05, r.get_center().y)
 	slab.visible = false
 
+## Dig (or fill) a pit cell flat to its `depth`. For tests and the demo.
 func _set_cell(c: Dictionary) -> void:
-	var h := PIT_DEPTH - float(c.depth)
-	if h < 0.02:
-		c.shape.disabled = true
-		c.mesh.visible = false
-		c.top.visible = false
-		return
-	c.shape.disabled = false
-	c.mesh.visible = true
-	c.top.visible = true
-	(c.shape.shape as BoxShape3D).size = Vector3(CELL, h, CELL)
-	c.shape.position = Vector3(c.x, -PIT_DEPTH + h / 2.0, c.z)
-	c.mesh.scale = Vector3(1, h / PIT_DEPTH, 1)
-	c.mesh.position = Vector3(c.x, -PIT_DEPTH + h / 2.0, c.z)
-	c.top.position = Vector3(c.x, -PIT_DEPTH + h + 0.02, c.z)
+	terrain.flatten(c.rect.grow(0.01), -float(c.depth))
 
 func _cell_at(p: Vector3) -> Dictionary:
 	if not pit_rect.has_point(Vector2(p.x, p.z)): return {}
@@ -184,37 +165,49 @@ func _cell_at(p: Vector3) -> Dictionary:
 	var iz := clampi(int((p.z - pit_rect.position.y) / CELL), 0, PIT_CELLS - 1)
 	return cells[ix * PIT_CELLS + iz]
 
-## The excavator scoops at `p`. Returns how much load it got.
+## The excavator's bucket cuts at `p`: sand above the tip comes out, up
+## to `amount` loads. Returns how much it got.
 func dig_at(p: Vector3, amount: float) -> float:
-	if poured or pouring: return 0.0
+	if not terrain.contains(p) or terrain.is_hole(p): return 0.0
+	if (poured or pouring) and pit_rect.grow(0.3).has_point(Vector2(p.x, p.z)): return 0.0
 	var c := _cell_at(p)
-	if c.is_empty() or float(c.concrete) > 0.0: return 0.0
-	var top := -float(c.depth)
-	if p.y > top + 0.3 or float(c.depth) >= PIT_DEPTH: return 0.0
-	var take := minf(amount, (PIT_DEPTH - float(c.depth)) / DIG_PER_LOAD)
-	c.depth = minf(PIT_DEPTH, float(c.depth) + take * DIG_PER_LOAD)
-	_set_cell(c)
-	return take
+	if not c.is_empty() and float(c.concrete) > 0.0: return 0.0
+	return terrain.cut(p, p.y - 0.2, 0.9, amount * VOL_PER_LOAD) / VOL_PER_LOAD
+
+## A dozer blade edge at `p` scrapes sand above it and shoves it ahead
+## along `ahead`, so a berm builds up in front of the blade.
+func plow(p: Vector3, ahead: Vector3, max_volume: float) -> void:
+	if not terrain.contains(p) or terrain.is_hole(p): return
+	if (poured or pouring) and pit_rect.grow(0.3).has_point(Vector2(p.x, p.z)): return
+	# The edge bites a little under itself, or the dozer would climb the
+	# thin layer it leaves behind, a few centimetres at a time.
+	var floor_y := p.y - 0.12
+	if terrain.height_at(p) <= floor_y: return
+	var got := terrain.cut(p, floor_y, 0.5, max_volume, true)
+	# No slumping here: it would slide the berm back under the blade.
+	if got > 0.0: terrain.add(p + ahead * 0.65, got, 0.6, false)
 
 ## Ground height under a point: the pit floor, dirt or concrete in the pit.
 func ground_at(p: Vector3) -> float:
+	if not terrain or not terrain.contains(p): return 0.0
 	var c := _cell_at(p)
-	if c.is_empty(): return 0.0
-	if poured: return 0.0
-	return -PIT_DEPTH + maxf(PIT_DEPTH - float(c.depth), float(c.concrete) * PIT_DEPTH)
+	if not c.is_empty():
+		if poured: return 0.0
+		if float(c.concrete) > 0.0: return maxf(terrain.height_at(p), -PIT_DEPTH + float(c.concrete) * PIT_DEPTH)
+	return terrain.height_at(p)
 
 ## The hose pours `amount` (cells) at `p`. Returns false when it misses:
 ## outside the pit, or into a cell that isn't dug out yet or is already full.
 func pour_at(p: Vector3, amount: float) -> bool:
 	if poured or pouring: return false
 	var c := _cell_at(p)
-	if c.is_empty() or float(c.depth) < PIT_DEPTH - 0.02: return false
+	if c.is_empty() or float(c.depth) < PIT_DEPTH * 0.92: return false
 	if float(c.concrete) >= 1.0:
 		# Full: it slops over into the emptiest dug neighbour.
 		var best: Dictionary = {}
 		for o in cells:
 			if absf(float(o.x) - float(c.x)) > CELL * 1.1 or absf(float(o.z) - float(c.z)) > CELL * 1.1: continue
-			if float(o.depth) < PIT_DEPTH - 0.02 or float(o.concrete) >= 1.0: continue
+			if float(o.depth) < PIT_DEPTH * 0.92 or float(o.concrete) >= 1.0: continue
 			if best.is_empty() or float(o.concrete) < float(best.concrete): best = o
 		if best.is_empty(): return false
 		c = best
@@ -247,9 +240,14 @@ func splat(p: Vector3) -> void:
 	splats.append(m)
 
 func pit_progress() -> float:
+	if poured: return 1.0
 	var total := 0.0
-	for c in cells: total += float(c.depth)
-	return total / (PIT_DEPTH * cells.size())
+	for c in cells: total += clampf(float(c.depth) / (PIT_DEPTH * 0.92), 0.0, 1.0)
+	return total / cells.size()
+
+## How deep each pit cell is dug, from the terrain.
+func _measure_cells() -> void:
+	for c in cells: c.depth = terrain.mean_depth(c.rect)
 
 func spawn_clump(at: Vector3, amount: float, inherit: Vector3) -> void:
 	var b := RigidBody3D.new()
@@ -376,7 +374,7 @@ func _build_props() -> void:
 		return true, 2.0)
 	# Sparse weeds inside the site, mostly along the fence and away from the work areas.
 	var busy := [pit_rect.grow(1.5), DUMP.grow(1.0), Rect2(PAD.x - 3, PAD.z - 3, 6, 6), Rect2(YARD.x - 6, YARD.z - 5, 14, 10)]
-	Decor.tufts(self, deco, SITE.grow(-0.6), 260, func(p: Vector2) -> bool:
+	_tufts = Decor.tufts(self, deco, SITE.grow(-0.6), 260, func(p: Vector2) -> bool:
 		for r in busy: if r.has_point(p): return false
 		var edge := minf(minf(p.x - SITE.position.x, SITE.end.x - p.x), minf(p.y - SITE.position.y, SITE.end.y - p.y))
 		return edge < 3.0 or deco.randf() < 0.18)
@@ -716,6 +714,20 @@ func _spawn_rubble() -> void:
 			b.global_position.y = 0.45
 
 ## A crate by the builders' gate with two foam guns on it.
+## Tufts stand on the ground: they sink and rise with it, and vanish where
+## it's been dug up or buried.
+func _settle_tufts() -> void:
+	if _tufts == null or terrain.changed_since == _tufts_seen: return
+	_tufts_seen = terrain.changed_since
+	var mm := _tufts.multimesh
+	if _tuft_rest.is_empty():
+		for k in mm.instance_count: _tuft_rest.append(mm.get_instance_transform(k))
+	for k in mm.instance_count:
+		var xf: Transform3D = _tuft_rest[k]
+		var y := terrain.height_at(xf.origin)
+		if absf(y) > 0.12: xf = xf.scaled_local(Vector3.ZERO)
+		mm.set_instance_transform(k, xf)
+
 func _spawn_tools() -> void:
 	var crate := Vector3(-15.5, 0, 7.0)
 	Toy.box(self, Vector3(1.8, 0.5, 1.0), crate + Vector3(0, 0.25, 0), Color("#2a8ad6"))
@@ -774,7 +786,14 @@ func _physics_process(delta: float) -> void:
 	for m in machines:
 		for k in m.marks.size():
 			var mk: Array = m.marks[k]
-			ruts.follow(m.get_instance_id() * 8 + k, m.global_transform * mk[0], mk[1], 0.85 if mk[2] else 0.7, mk[2])
+			var g: Vector3 = m.global_transform * mk[0]
+			g.y -= ground_at(g)
+			ruts.follow(m.get_instance_id() * 8 + k, g, mk[1], 0.85 if mk[2] else 0.7, mk[2])
+	_cells_timer -= delta
+	if _cells_timer <= 0.0:
+		_cells_timer = 0.2
+		_measure_cells()
+		_settle_tufts()
 	var dump_rect := DUMP
 	for b in get_tree().get_nodes_in_group("clump"):
 		var p: Vector3 = b.global_position
@@ -782,11 +801,16 @@ func _physics_process(delta: float) -> void:
 		if dump_rect.has_point(xz) and p.y < -1.0:
 			dirt_dumped += float(b.get_meta("amount", 0.25))
 			b.queue_free()
-		elif pit_rect.has_point(xz) and p.y < -0.05 and not poured and not pouring:
-			var c := _cell_at(p)
-			if not c.is_empty() and float(c.concrete) <= 0.0 and p.y < -float(c.depth) + 0.6 and b.linear_velocity.length() < 1.5:
-				c.depth = maxf(0.0, float(c.depth) - float(b.get_meta("amount", 0.25)) * DIG_PER_LOAD)
-				_set_cell(c)
+		elif terrain.contains(p) and not terrain.is_hole(p):
+			# A clump that comes to rest on the ground becomes ground again.
+			var rest: float = b.get_meta("rest", 0.0)
+			var on_ground := p.y - terrain.height_at(p) < 0.75
+			rest = rest + delta if on_ground and b.linear_velocity.length() < 0.6 else 0.0
+			b.set_meta("rest", rest)
+			if rest > 0.5:
+				var c := _cell_at(p)
+				if c.is_empty() or (float(c.concrete) <= 0.0 and not poured and not pouring):
+					terrain.add(Vector3(p.x, 0, p.z), float(b.get_meta("amount", 0.25)) * VOL_PER_LOAD, 0.9)
 				b.queue_free()
 		elif p.y < -8.0:
 			b.queue_free()
@@ -834,11 +858,8 @@ func _physics_process(delta: float) -> void:
 func _pour() -> void:
 	pouring = true
 	message.emit("Pit full! Concrete setting...")
-	for c in cells:
-		c.shape.disabled = true
-		c.mesh.visible = false
-		c.top.visible = false
 	var r := pit_rect
+	terrain.flatten(r.grow(0.2), -PIT_DEPTH)
 	slab.position = Vector3(r.get_center().x, -PIT_DEPTH / 2.0 - 0.01, r.get_center().y)
 	var tw := create_tween()
 	tw.tween_interval(1.5)
@@ -865,6 +886,8 @@ func cheat(stage: String) -> void:
 		for c in cells:
 			c.depth = PIT_DEPTH
 			_set_cell(c)
+		_measure_cells()
+		for c in cells:
 			if stage == "poured": pour_at(Vector3(c.x, -0.5, c.z), 1.0)
 		for b in get_tree().get_nodes_in_group("rubble"):
 			if stage not in ["dug", "poured"] or randf() < 0.5:
@@ -873,10 +896,8 @@ func cheat(stage: String) -> void:
 				b.queue_free()
 	if stage in ["built", "half"]:
 		poured = true
-		for c in cells:
-			c.shape.disabled = true
-			c.mesh.visible = false
-			c.top.visible = false
+		terrain.flatten(pit_rect.grow(0.2), -PIT_DEPTH)
+		for c in cells: c.depth = PIT_DEPTH
 		slab.visible = true
 		slab.position = Vector3(pit_rect.get_center().x, -PIT_DEPTH / 2.0, pit_rect.get_center().y)
 		var mods := get_tree().get_nodes_in_group("module")

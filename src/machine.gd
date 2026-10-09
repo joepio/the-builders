@@ -6,6 +6,10 @@ extends RigidBody3D
 
 signal bonked(worker: Node)
 
+const MAX_SPEED := 11.0   ## m/s across the ground
+const MAX_RISE := 3.5     ## m/s upwards
+const MAX_SPIN := 3.0     ## rad/s
+
 var title := "Machine"
 ## Controls cheat sheet shown when someone climbs in: [[pad glyphs], action].
 var hint: Array = []
@@ -73,6 +77,18 @@ func _physics_process(delta: float) -> void:
 	if i.is_empty(): i = _neutral
 	control(i, delta)
 	if global_position.y < -6.0: respawn()
+
+## Moving parts (buckets, blades, forks) are kinematic and push with endless
+## force, so a machine caught by one could be launched. Nothing on site
+## legitimately goes this fast, so clamp it.
+func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	var v := state.linear_velocity
+	var flat := Vector2(v.x, v.z)
+	if flat.length() > MAX_SPEED or v.y > MAX_RISE:
+		if flat.length() > MAX_SPEED: flat = flat.normalized() * MAX_SPEED
+		state.linear_velocity = Vector3(flat.x, minf(v.y, MAX_RISE), flat.y)
+	if state.angular_velocity.length() > MAX_SPIN:
+		state.angular_velocity = state.angular_velocity.normalized() * MAX_SPIN
 
 func respawn() -> void:
 	linear_velocity = Vector3.ZERO

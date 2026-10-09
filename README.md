@@ -18,7 +18,7 @@ That is the point.
 | Step | Who | How |
 | --- | --- | --- |
 | Clear the junk | Bulldozer | Push the sofa, tyres, slabs and the old fridge into the **DUMP** hole |
-| Dig the foundation pit | Excavator | Scoop the nine dirt cells down to the pit floor |
+| Dig the foundation pit | Excavator | Scoop the nine pit cells 0.8 m deep. The whole site is sand: dig anywhere, and dirt dropped on the ground piles up where it lands |
 | Haul the dirt | Excavator + dump truck | Dump into the truck, drive it to the hole, tip the bed. Dirt spilled back into the pit fills it again |
 | Pour the concrete | Concrete truck + builder on foot | Park the mixer near the pit, press X to start the pump, then grab the hose on foot and pour every dug cell full. The hose only reaches 11 m and missed concrete splats on the sand |
 | Stack the house | Forklifts + crane + builders | Forklift modules from **DELIVERIES** to **CRANE PICKUP**, crane them onto the dotted ghosts (four below, two on top, then the roof). Nothing snaps: a builder on foot presses A next to a lowered module to bolt it in exactly where it stands, up to 1 m off and 20 degrees twisted. Sloppy crane work makes a wonky house |
@@ -39,8 +39,8 @@ On foot, the left stick walks, **B** jumps (out of the pit, say), **A** bolts a 
 
 | Machine | Controls |
 | --- | --- |
-| Bulldozer | LT / LB: left track forward / back, RT / RB: right track forward / back, right stick: lift and angle the blade |
-| Excavator | Left stick: swing / arm in-out, right stick: boom / bucket curl, LT / LB and RT / RB: tracks, same as the bulldozer. Dirt stays in while the bucket faces up |
+| Bulldozer | LT / LB: left track forward / back, RT / RB: right track forward / back, right stick: lift and angle the blade. A lowered blade scrapes sand and pushes it ahead as a berm |
+| Excavator | Left stick: swing / arm in-out, right stick: boom / bucket curl, LT / LB and RT / RB: tracks, same as the bulldozer. Dirt stays in while the bucket faces up. Shove the bucket into the ground and the digger levers itself up on its arm |
 | Forklift | Left stick: steer (rear wheels), RT / LT: drive / reverse, right stick: forks |
 | Dump truck | Left stick: steer, RT / LT: drive / reverse, RB: tip the bed |
 | Concrete truck | Left stick: steer, RT / LT: drive / reverse, X: pump on / off |
@@ -87,6 +87,7 @@ house reports the round and starts the next job.
 ## Code
 
 - `src/main.gd`: players, camera, GameNight lifecycle, demo and screenshots
+- `src/terrain.gd`: the deformable sand height field (chunked mesh + collision)
 - `src/site.gd`: the level and the job: ground, pit cells, dump, slots, deliveries
 - `src/machine.gd`: shared rigid-body machine with arcade drive helpers
 - `src/bulldozer.gd`, `excavator.gd`, `forklift.gd`, `dump_truck.gd`, `crane.gd`: the machines

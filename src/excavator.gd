@@ -27,6 +27,7 @@ var _swing_vel := 0.0
 var _bucket_body: AnimatableBody3D
 var _load_mesh: MeshInstance3D
 var _spill_timer := 0.0
+var lift_push := 0.0   ## How hard the ground pushes back on the bucket (m too deep).
 
 func _build() -> void:
 	title = "Excavator"
@@ -93,9 +94,16 @@ func _build() -> void:
 	hint = [[["LS-h"], "swing"], [["LS-v"], "arm in / out"], [["RS-v"], "boom up / down"], [["RS-h"], "curl / dump bucket"]] + TRACK_HINT + [[["Y"], "tap: hop out"]]
 	for side in [-1.0, 1.0]:
 		for z in [-1.6, 1.6]: marks.append([Vector3(side * 1.05, 0, z), 0.7, true])
+	# It may tip: the bucket can lever the tracks off the ground.
+	axis_lock_angular_x = false
+	axis_lock_angular_z = false
+	angular_damp = 2.5
 	_pose()
 
 func control(i: Dictionary, delta: float) -> void:
+	# Weeble: a tipped digger rights itself instead of lying on its side.
+	var up := global_transform.basis.y
+	apply_torque(up.cross(Vector3.UP) * mass * 40.0)
 	var t := tracks(i)
 	drive((t.x + t.y) * 0.5 * 3.5, (t.y - t.x) * 1.0, delta, 4.0, 0.95, 4.0)
 	# Swing has momentum, so the arm overshoots a little: on purpose.
@@ -123,10 +131,23 @@ func mouth_up() -> float:
 func _dig(curl: float, delta: float) -> void:
 	if site == null: return
 	var t := tip.global_position
-	# Scooping: tip in the dirt while curling the bucket in.
-	if curl < -0.2 and carried < CAPACITY:
-		var got: float = site.dig_at(t, minf(CAPACITY - carried, 0.9 * delta * -curl))
-		carried += got
+	var pen: float = site.ground_at(t) - t.y
+	lift_push = 0.0
+	if pen > 0.0 and not site.terrain.is_hole(t):
+		# Scooping: curl the bucket in while its teeth are in the sand.
+		if curl < -0.2 and carried < CAPACITY:
+			carried += site.dig_at(t, minf(CAPACITY - carried, 2.5 * delta * -curl))
+			pen = site.ground_at(t) - t.y
+		# The ground pushes back: shove the bucket in deeper than it can bite
+		# and the digger levers itself up on its arm. A damped spring, so it
+		# rises and settles rather than bouncing.
+		var bite := 0.25 if curl < -0.2 else 0.08
+		if pen > bite:
+			lift_push = pen - bite
+			var tip_vy := (linear_velocity + angular_velocity.cross(t - global_position)).y
+			var f := mass * (lift_push * 45.0 - tip_vy * 6.0)
+			if f > 0.0: apply_force(Vector3.UP * minf(f, mass * 30.0), t - global_position)
+	else: lift_push = 0.0
 	# Spilling: an upside-down bucket empties itself in clumps.
 	if carried > 0.01 and mouth_up() < -0.15:
 		_spill_timer -= delta

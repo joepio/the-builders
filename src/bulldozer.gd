@@ -83,10 +83,25 @@ func control(i: Dictionary, delta: float) -> void:
 	lift = clampf(lift - float(i.ry) * 0.9 * delta, LIFT.x, LIFT.y)
 	angle = clampf(angle - float(i.rx) * 1.2 * delta, -ANGLE, ANGLE)
 	_pose()
+	_scrape(delta)
 	_track_phase[0] += l * delta * 4.0
 	_track_phase[1] += r * delta * 4.0
 	for k in 2:
 		_tracks[k].position.y = 0.45 + sin(_track_phase[k] * 6.0) * 0.015
+
+## A lowered blade cuts the sand under its edge and pushes it ahead.
+func _scrape(delta: float) -> void:
+	if site == null: return
+	var ahead := -blade.global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized()
+	var push := clampf(speed() / SPEED, 0.15, 1.0)
+	# Two rows: the edge, and just behind it so sand that slumps back under
+	# the blade gets caught too instead of lifting the dozer.
+	for z in [-1.45, -0.95]:
+		for k in 7:
+			var p := blade.global_transform * Vector3(-1.5 + k * 0.5, -0.81, z)
+			site.plow(p, ahead, 0.4)
 
 func _pose() -> void:
 	blade.rotation = Vector3(lift, angle, 0)

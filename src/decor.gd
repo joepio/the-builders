@@ -16,6 +16,7 @@ uniform float speckle = 0.5;
 uniform sampler2D ruts : filter_linear, repeat_disable;
 uniform vec4 ruts_rect = vec4(0.0, 0.0, 1.0, 1.0);
 uniform float ruts_on = 0.0;
+uniform float dig_tint = 0.0;
 varying vec3 wpos;
 varying vec3 wnormal;
 void vertex() {
@@ -44,6 +45,8 @@ void fragment() {
 	vec2 local = fract(p * 4.0) - 0.5;
 	float speck = step(0.86, hash(cell)) * (1.0 - smoothstep(0.12, 0.22, length(local)));
 	c = mix(c, dark * 0.75, speck * speckle);
+	// Dug-up or piled sand is fresh and darker than the sun-bleached top.
+	if (dig_tint > 0.5) c = mix(c, dark * 0.8, clamp(abs(wpos.y) * 1.3, 0.0, 0.7));
 	// Tracks pressed into the ground: darker, damp grooves, lit on the far
 	// wall from the sun and shaded on the near one.
 	vec2 ruv = (p - ruts_rect.xy) / ruts_rect.zw;
@@ -123,7 +126,7 @@ static func _vertex_color_mat(rough := 0.85) -> StandardMaterial3D:
 	return m
 
 ## Scatter tufts. `ok` filters positions (Vector2 xz -> bool).
-static func tufts(parent: Node3D, rng: RandomNumberGenerator, area: Rect2, count: int, ok: Callable, size := 1.0) -> void:
+static func tufts(parent: Node3D, rng: RandomNumberGenerator, area: Rect2, count: int, ok: Callable, size := 1.0) -> MultiMeshInstance3D:
 	var xs: Array = []
 	var tries := 0
 	while xs.size() < count and tries < count * 6:
@@ -133,7 +136,7 @@ static func tufts(parent: Node3D, rng: RandomNumberGenerator, area: Rect2, count
 		var s := rng.randf_range(0.7, 1.5) * size
 		xs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.8, 1.3), s)), Vector3(p.x, 0.0, p.y)))
 	var m := _vertex_color_mat()
-	_multimesh(parent, tuft_mesh(), xs, [], m, false)
+	return _multimesh(parent, tuft_mesh(), xs, [], m, false)
 
 ## Round trees (trunk + three canopy blobs), bushes and rocks outside the fence.
 static func greenery(parent: Node3D, rng: RandomNumberGenerator, world: Rect2, keep_out: Array) -> void:

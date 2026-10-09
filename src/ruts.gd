@@ -22,6 +22,7 @@ func apply(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("ruts", texture)
 	m.set_shader_parameter("ruts_rect", Vector4(rect.position.x, rect.position.y, rect.size.x, rect.size.y))
 	m.set_shader_parameter("ruts_on", 1.0)
+	m.set_shader_parameter("dig_tint", 1.0)
 
 ## Follow one contact point (a track end, a wheel) as it moves. `tread`
 ## gives the mark cross bars like a crawler track.
