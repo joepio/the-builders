@@ -51,7 +51,7 @@ func _build() -> void:
 	add_child(_bed_body)
 	add_collision_exception_with(_bed_body)
 	_bed_body.add_collision_exception_with(self)
-	hint = "Left stick: steer\nRT / LT: drive / reverse\nY or RB: tip the bed\nB: hop out"
+	hint = [[["LS-h"], "steer"], [["RT", "LT"], "drive / reverse"], [["Y"], "tip the bed"], [["B"], "hop out"]]
 	_pose()
 
 func control(i: Dictionary, delta: float) -> void:

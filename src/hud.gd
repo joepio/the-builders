@@ -179,23 +179,29 @@ func set_players(players: Array) -> void:
 	for p in players:
 		var card := _panel(PAPER)
 		card.size_flags_vertical = Control.SIZE_SHRINK_END
-		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 10)
-		card.add_child(h)
-		var dot := ColorRect.new()
-		dot.color = p.color
-		dot.custom_minimum_size = Vector2(16, 40)
-		h.add_child(dot)
 		var v := VBoxContainer.new()
-		v.add_theme_constant_override("separation", -4)
-		h.add_child(v)
-		v.add_child(_label(str(p.name), 26, INK))
+		v.add_theme_constant_override("separation", -2)
+		card.add_child(v)
+		# The name carries the player's colour; the ink outline keeps light colours readable.
+		var name_label := _label(str(p.name), 28, p.color)
+		name_label.add_theme_constant_override("outline_size", 8)
+		name_label.add_theme_color_override("font_outline_color", INK)
+		v.add_child(name_label)
 		var job := "on foot" if p.machine == null else str(p.machine.title)
 		v.add_child(_label(job, 20, Color(INK, 0.6)))
 		if p.machine != null and p.has("hint_until"):
-			var hint := _label(str(p.machine.hint), 16, INK)
-			hint.add_theme_constant_override("line_spacing", -6)
-			v.add_child(hint)
+			var rows := VBoxContainer.new()
+			rows.add_theme_constant_override("separation", 3)
+			v.add_child(rows)
+			for row in p.machine.hint:
+				var line := HBoxContainer.new()
+				line.add_theme_constant_override("separation", 4)
+				for key in row[0]: line.add_child(PadIcon.make(key, _font))
+				var text := _label(str(row[1]), 18, INK)
+				text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				line.add_child(text)
+				line.get_child(line.get_child_count() - 1).add_theme_constant_override("margin_left", 4)
+				rows.add_child(line)
 		_players.add_child(card)
 
 func show_join(value: bool) -> void:

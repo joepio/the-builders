@@ -90,7 +90,7 @@ func _build() -> void:
 	add_child(_bucket_body)
 	add_collision_exception_with(_bucket_body)
 	_bucket_body.add_collision_exception_with(self)
-	hint = "Left stick: swing / arm in-out\nRight stick: boom / bucket curl\nTriggers + bumpers: tracks\nB: hop out"
+	hint = [[["LS-h"], "swing"], [["LS-v"], "arm in / out"], [["RS-v"], "boom up / down"], [["RS-h"], "curl / dump bucket"], [["LT", "LB"], "left track"], [["RT", "RB"], "right track"], [["B"], "hop out"]]
 	_pose()
 
 func control(i: Dictionary, delta: float) -> void:

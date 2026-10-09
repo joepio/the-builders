@@ -7,8 +7,8 @@ extends RigidBody3D
 signal bonked(worker: Node)
 
 var title := "Machine"
-## Controls cheat sheet shown when someone climbs in, one line per control.
-var hint := ""
+## Controls cheat sheet shown when someone climbs in: [[pad glyphs], action].
+var hint: Array = []
 var driver: Dictionary = {}       ## The player driving, or empty.
 var home := Transform3D.IDENTITY  ## Where it respawns when it falls off the world.
 var easy := false                 ## Friendlier controls (settings: controls = easy).
