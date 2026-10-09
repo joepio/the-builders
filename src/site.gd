@@ -20,6 +20,8 @@ const PAD := Vector3(-8, 0, 6)
 const YARD := Vector3(16, 0, 8)
 const SPAWN := Vector3(-18, 0, 10)
 const GATE := Vector2(5.0, 13.0)   ## x range of the gate in the bottom fence
+const BOLT_REACH := 1.0   ## How far off its ghost a module may be bolted (m).
+const BOLT_TWIST := 0.35  ## And how twisted (rad, about 20 degrees).
 const WET := Color("#565855")       ## Fresh concrete, dark and wet
 
 var pit_rect := Rect2(HOUSE.x - 3, HOUSE.z - 3, 6, 6)
@@ -28,6 +30,8 @@ var slab: AnimatableBody3D
 var poured := false
 var pouring := false   ## Concrete is curing: the slab is about to set.
 var splats: Array[Node3D] = []
+var seams: Array[Dictionary] = []   ## Gaps between bolted parts that need PUR.
+var tools: Array[Tool] = []
 var slots: Array[Dictionary] = []
 var machines: Array[Machine] = []
 var ruts: Ruts
@@ -58,6 +62,7 @@ func _ready() -> void:
 	_build_dump()
 	_build_fence()
 	_build_props()
+	_spawn_tools()
 	_build_slots()
 	_spawn_modules()
 	_spawn_rubble()
@@ -153,6 +158,7 @@ func _build_pit() -> void:
 	slab.sync_to_physics = true
 	add_child(slab)
 	Toy.box(slab, Vector3(r.size.x, PIT_DEPTH, r.size.y), Vector3.ZERO, Toy.CONCRETE)
+	Toy.shape(slab, Vector3(r.size.x, PIT_DEPTH, r.size.y), Vector3.ZERO)
 	slab.position = Vector3(r.get_center().x, -PIT_DEPTH * 1.5 - 0.05, r.get_center().y)
 	slab.visible = false
 
@@ -406,10 +412,147 @@ func _build_slots() -> void:
 		bm.size = Module.SIZE if s.kind == "module" else Vector3(5.0, 1.4, 2.4)
 		ghost.mesh = bm
 		ghost.position = s.pos + Vector3(0, bm.size.y / 2.0, 0)
-		ghost.material_override = Toy.ghost(Color(0.4, 0.9, 1.0), 0.28)
+		ghost.material_override = Toy.ghost(Color(0.4, 0.9, 1.0), 0.12)
 		ghost.visible = false
 		add_child(ghost)
+		var dots := MeshInstance3D.new()
+		dots.mesh = _dashed_box(bm.size)
+		dots.material_override = Toy.glow(Color(0.45, 0.95, 1.0), 1.2)
+		ghost.add_child(dots)
 		s["ghost"] = ghost
+	_build_seams()
+
+## Every place two parts of the house meet is a gap that needs foam: side
+## by side on a floor, a floor on the one below, the roof on the top floor.
+func _build_seams() -> void:
+	var g := Module.SIZE.x / 2.0 + 0.02
+	for i in slots.size():
+		for j in range(i + 1, slots.size()):
+			var a: Dictionary = slots[i]
+			var b: Dictionary = slots[j]
+			var d: Vector3 = b.pos - a.pos
+			var flat := Vector2(d.x, d.z).length()
+			var kind := ""
+			if a.layer == b.layer and absf(flat - 2.0 * g) < 0.1: kind = "side"
+			elif b.layer == a.layer + 1 and (flat < 0.1 or (b.kind == "roof" and absf(flat - g) < 0.1)): kind = "stack"
+			if kind == "": continue
+			var marker := MeshInstance3D.new()
+			marker.material_override = Toy.glow(Color("#ff3b1f"), 0.5)
+			marker.visible = false
+			add_child(marker)
+			seams.append({"a": a, "b": b, "kind": kind, "open": false, "done": false, "foam": 0.0, "need": 1.0, "marker": marker})
+
+## Open seams once both their parts are bolted: how much foam a gap takes
+## depends on how sloppily the two parts meet.
+func _update_seams() -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	for sm in seams:
+		if sm.done: continue
+		if not sm.open:
+			if sm.a.filled == null or sm.b.filled == null: continue
+			if not (sm.a.filled.freeze and sm.b.filled.freeze): continue
+			_open_seam(sm)
+		sm.marker.material_override.emission_energy_multiplier = 0.5 + 0.4 * sin(t * 6.0)
+
+func _open_seam(sm: Dictionary) -> void:
+	sm.open = true
+	var ma: Module = sm.a.filled
+	var mb: Module = sm.b.filled
+	var ca := ma.center()
+	var cb := mb.center()
+	var ideal: Vector3 = sm.b.pos - sm.a.pos
+	var actual := cb - ca
+	var err := Vector2(actual.x - ideal.x, actual.z - ideal.z).length()
+	err += absf(angle_difference(ma.global_rotation.y, mb.global_rotation.y)) * 1.5
+	sm.need = 1.0 + err * 6.0
+	var box := BoxMesh.new()
+	var lower_yaw := ma.global_rotation.y
+	if sm.kind == "side":
+		var along := Vector3(actual.x, 0, actual.z).normalized()
+		box.size = Vector3(0.3 + err * 0.5, Module.SIZE.y + 0.4, Module.SIZE.z + 0.4)
+		sm.marker.mesh = box
+		sm.marker.global_transform = Transform3D(Basis(Vector3.UP, atan2(-along.z, along.x)), (ca + cb) * 0.5)
+		sm["spot"] = (ca + cb) * 0.5
+		sm["span"] = Vector3(-along.z, 0, along.x) * (Module.SIZE.z / 2.0 - 0.1)
+	else:
+		var top := ca + Vector3(0, Module.SIZE.y / 2.0, 0)
+		var w := Module.SIZE.x + 0.1
+		box.size = Vector3(w + 0.35, 0.28 + err * 0.4, w + 0.35)
+		sm.marker.mesh = box
+		sm.marker.global_transform = Transform3D(Basis(Vector3.UP, lower_yaw), top)
+		sm["spot"] = top
+		sm["span"] = Basis(Vector3.UP, lower_yaw) * Vector3(w / 2.0, 0, 0)
+	sm.marker.visible = true
+
+## Somewhere along a seam for a foam blob to land.
+func seam_spot(sm: Dictionary) -> Vector3:
+	var p: Vector3 = sm.spot + sm.span * randf_range(-1.0, 1.0)
+	if sm.kind == "side": p.y += randf_range(-0.9, 0.9)
+	else: p += Vector3(-sm.span.z, 0, sm.span.x) * (1.0 if randf() < 0.5 else -1.0)
+	return p
+
+## The open, unfoamed seam a gun at `from` pointing along `fwd` reaches.
+func seam_ahead(from: Vector3, fwd: Vector3, reach: float) -> Dictionary:
+	var best: Dictionary = {}
+	var best_d := reach
+	for sm in seams:
+		if not sm.open or sm.done: continue
+		# Closest point on the seam's span, measured flat: a gun reaches up.
+		var a: Vector3 = sm.spot - sm.span
+		var b: Vector3 = sm.spot + sm.span
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		var ap := Vector2(from.x - a.x, from.z - a.z)
+		var t := clampf(ap.dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+		var q := Vector2(a.x, a.z) + ab * t
+		var to := q - Vector2(from.x, from.z)
+		var d := to.length()
+		if sm.kind == "stack": d = maxf(0.0, d - Module.SIZE.x / 2.0)
+		if d > 0.3 and to.normalized().dot(Vector2(fwd.x, fwd.z)) < 0.2: continue
+		if d < best_d:
+			best_d = d
+			best = sm
+	return best
+
+func foam_seam(sm: Dictionary, amount: float) -> void:
+	if sm.done: return
+	sm.foam = float(sm.foam) + amount
+	if sm.foam >= sm.need:
+		sm.done = true
+		sm.marker.visible = false
+		var left := 0
+		for o in seams: if not o.done: left += 1
+		message.emit("Sealed! %d gaps left" % left if left > 0 else "Every gap sealed!")
+
+func seams_done() -> int:
+	var n := 0
+	for sm in seams: if sm.done: n += 1
+	return n
+
+## The ghost's dotted outline: every edge of a box as short dashes, one mesh.
+func _dashed_box(size: Vector3) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dash := BoxMesh.new()
+	var h := size / 2.0
+	for axis in 3:
+		var len: float = size[axis]
+		var count := maxi(2, int(len / 0.42))
+		var step := len / count
+		for a in [-1.0, 1.0]:
+			for b in [-1.0, 1.0]:
+				var edge := Vector3.ZERO
+				var u := (axis + 1) % 3
+				var v := (axis + 2) % 3
+				edge[u] = a * h[u]
+				edge[v] = b * h[v]
+				for k in count:
+					var c := edge
+					c[axis] = -h[axis] + step * (k + 0.5)
+					var sz := Vector3.ONE * 0.07
+					sz[axis] = step * 0.55
+					dash.size = sz
+					st.append_from(dash, 0, Transform3D(Basis.IDENTITY, c))
+	return st.commit()
 
 func active_layer() -> int:
 	if not poured: return -1
@@ -429,32 +572,72 @@ func _check_slots() -> void:
 	for s in slots:
 		s.ghost.visible = s.layer == layer and s.filled == null
 		if s.ghost.visible:
-			s.ghost.material_override.albedo_color.a = 0.18 + 0.14 * sin(t * 4.0)
-	if layer < 0 or layer > 2: return
+			s.ghost.material_override.albedo_color.a = 0.08 + 0.06 * sin(t * 4.0)
+			s.ghost.get_child(0).material_override.emission_energy_multiplier = 1.0 + 0.6 * sin(t * 4.0)
 	for m in get_tree().get_nodes_in_group("module"):
 		if m.placed: continue
-		for s in slots:
-			if s.layer != layer or s.filled != null or s.kind != m.kind: continue
-			var d: Vector3 = m.global_position - s.pos
-			if Vector2(d.x, d.z).length() > 1.1: continue
-			if d.y < -0.4 or d.y > 0.9: continue
-			if m.linear_velocity.length() > 3.0: continue
-			var yaw: float = m.global_rotation.y
-			var step := PI / 2.0 if m.kind == "module" else PI
-			var snapped := roundf(yaw / step) * step
-			if m.kind == "roof" and absf(angle_difference(yaw, snapped)) > 0.6: continue
-			if m.global_transform.basis.y.y < 0.85: continue
-			s.filled = m
-			m.place(Transform3D(Basis(Vector3.UP, snapped), s.pos))
-			var left := slots.size() - placed_count()
-			if left == 0:
-				message.emit("HOUSE COMPLETE!")
-				_finish()
-			elif m.kind == "roof":
-				pass
-			else:
-				message.emit("Module placed! %d to go" % left)
-			break
+		m.show_bolt_tag(layer >= 0 and layer <= 2 and bolt_problem(m) == "")
+
+## The free ghost of the active layer nearest to a module, or {}.
+func slot_for(m: Module) -> Dictionary:
+	var layer := active_layer()
+	var best: Dictionary = {}
+	var best_d := INF
+	for s in slots:
+		if s.layer != layer or s.filled != null or s.kind != m.kind: continue
+		var d: Vector3 = m.global_position - s.pos
+		var h := Vector2(d.x, d.z).length()
+		if h < best_d:
+			best_d = h
+			best = s
+	return best
+
+## Why a module can't be bolted in yet, or "" when it can.
+func bolt_problem(m: Module) -> String:
+	if not poured: return "Pour the foundation first"
+	var s := slot_for(m)
+	if s.is_empty(): return "Not this one yet"
+	var d: Vector3 = m.global_position - s.pos
+	if Vector2(d.x, d.z).length() > BOLT_REACH: return "Get it onto the ghost"
+	if d.y > 0.7: return "Lower it down first"
+	if d.y < -0.5: return "It's sunk too low"
+	if m.global_transform.basis.y.y < 0.92: return "It's tipped over"
+	if _yaw_error(m) > BOLT_TWIST: return "Too crooked, turn it"
+	if m.linear_velocity.length() > 1.2: return "Hold it still"
+	return ""
+
+func _yaw_error(m: Module) -> float:
+	var step := PI / 2.0 if m.kind == "module" else PI
+	var yaw: float = m.global_rotation.y
+	return absf(angle_difference(yaw, roundf(yaw / step) * step))
+
+## A builder bolts `m` in where it stands. Returns "" or what's wrong.
+func bolt(m: Module) -> String:
+	var why := bolt_problem(m)
+	if why != "": return why
+	var s := slot_for(m)
+	var d: Vector3 = m.global_position - s.pos
+	s.filled = m
+	s["off"] = Vector2(d.x, d.z).length()
+	s["twist"] = _yaw_error(m)
+	m.bolt()
+	var left := slots.size() - placed_count()
+	if left == 0:
+		message.emit("House stacked! Now PUR every gap")
+	else:
+		var verdict := "Perfect!" if s.off < 0.12 and s.twist < 0.04 else ("Bit wonky..." if s.off > 0.45 or s.twist > 0.15 else "Bolted!")
+		message.emit("%s %d to go" % [verdict, left])
+	return ""
+
+## How straight the house is, 0..100: off-centre and twisted parts cost.
+func neatness() -> int:
+	var total := 0.0
+	var n := 0
+	for s in slots:
+		if s.filled == null: continue
+		total += clampf(1.0 - float(s.get("off", 0.0)) / BOLT_REACH * 0.6 - float(s.get("twist", 0.0)) / BOLT_TWIST * 0.4, 0.0, 1.0)
+		n += 1
+	return int(round(100.0 * total / maxf(n, 1)))
 
 # ── Modules, rubble, machines ────────────────────────────────────────────────
 
@@ -532,6 +715,18 @@ func _spawn_rubble() -> void:
 			b.rotation.x = PI / 2   # lying on its back
 			b.global_position.y = 0.45
 
+## A crate by the builders' gate with two foam guns on it.
+func _spawn_tools() -> void:
+	var crate := Vector3(-15.5, 0, 7.0)
+	Toy.box(self, Vector3(1.8, 0.5, 1.0), crate + Vector3(0, 0.25, 0), Color("#2a8ad6"))
+	Toy.label(self, "PUR", crate + Vector3(0, 0.55, 0.55), Color.WHITE, 48).rotation.x = -PI / 2
+	for k in 2:
+		var gun := FoamGun.new()
+		gun.site = self
+		gun.position = crate + Vector3(-0.45 + k * 0.9, 0.5, 0)
+		add_child(gun)
+		tools.append(gun)
+
 func _spawn_machines() -> void:
 	var defs := [
 		[Excavator, Vector3(-3, 0, 4.5), 0.0],
@@ -572,6 +767,7 @@ func tasks() -> Array:
 		{"label": "Dig the foundation pit", "value": int(round(pit_progress() * 100.0)), "total": 100, "done": pit_progress() >= 0.999 or poured, "percent": true},
 		{"label": "Pour the concrete", "value": 100 if poured else int(floor(pour_progress() * 100.0)), "total": 100, "done": poured, "percent": true},
 		{"label": "Stack the house", "value": house, "total": slots.size(), "done": house >= slots.size()},
+		{"label": "PUR every gap", "value": seams_done(), "total": seams.size(), "done": seams_done() >= seams.size()},
 	]
 
 func _physics_process(delta: float) -> void:
@@ -629,6 +825,10 @@ func _physics_process(delta: float) -> void:
 	if not poured and not pouring and pour_progress() >= 0.999:
 		_pour()
 	_check_slots()
+	_update_seams()
+	if not finished and placed_count() == slots.size() and seams_done() == seams.size():
+		message.emit("HOUSE COMPLETE! Neatness %d%%" % neatness())
+		_finish()
 
 ## All cells full: the wet concrete sets into the slab.
 func _pour() -> void:
@@ -685,7 +885,11 @@ func cheat(stage: String) -> void:
 			var s: Dictionary = slots[k]
 			for m in mods:
 				if m.placed or m.kind != s.kind: continue
+				# A little wonky, like a real crew would leave it.
 				s.filled = m
-				m.global_position = s.pos
-				m.place(Transform3D(Basis.IDENTITY, s.pos))
+				s["off"] = _rng.randf_range(0.0, 0.2)
+				s["twist"] = _rng.randf_range(0.0, 0.06)
+				var a := _rng.randf() * TAU
+				m.global_transform = Transform3D(Basis(Vector3.UP, s.twist * (1 if k % 2 else -1)), s.pos + Vector3(cos(a), 0, sin(a)) * s.off + Vector3(0, 0.02 * k, 0))
+				m.bolt()
 				break

@@ -65,6 +65,7 @@ func _parse_args() -> void:
 		elif arg.begins_with("--stage="): _stage = arg.substr(8)
 		elif arg == "--pose": _pose = true
 		elif arg == "--pour-pose": _pour_pose.call_deferred()
+		elif arg == "--foam-pose": _foam_pose.call_deferred()
 		elif arg.begins_with("--cam="):
 			var parts := arg.substr(6).split(",")
 			_cam_target = Vector3(float(parts[0]), 0, float(parts[1]))
@@ -180,6 +181,28 @@ func _grab_tool(p: Dictionary) -> bool:
 	hud.set_players(players)
 	return true
 
+## Bolt the nearest loose module in where it stands. Returns true if a
+## module was in reach (bolted or not, the builder gets told why).
+func _try_bolt(p: Dictionary) -> bool:
+	var w: Worker = p.worker
+	var best: Module = null
+	var best_d := 2.7
+	for m in get_tree().get_nodes_in_group("module"):
+		if m.placed: continue
+		var d := Vector2(m.global_position.x - w.global_position.x, m.global_position.z - w.global_position.z).length()
+		if d >= best_d or not site.poured: continue
+		# Only modules at the house count; the yard is forklift territory.
+		var s: Dictionary = site.slot_for(m)
+		if s.is_empty() or Vector2(m.global_position.x - s.pos.x, m.global_position.z - s.pos.z).length() > 3.0: continue
+		if true:
+			best_d = d
+			best = m
+	if best == null: return false
+	var why: String = site.bolt(best)
+	if why != "":
+		hud.banner("%s: %s" % [p.name, why], 1.4)
+	return true
+
 func _leave_machine(p: Dictionary) -> void:
 	var m: Machine = p.machine
 	if m == null: return
@@ -216,7 +239,7 @@ func _physics_process(delta: float) -> void:
 					w.holding.drop()
 					hud.set_players(players)
 			elif i.a_pressed and w.stunned <= 0.0:
-				if not _grab_tool(p): _enter_machine(p)
+				if not _grab_tool(p) and not _try_bolt(p): _enter_machine(p)
 		if i.start_pressed and not managed and not demo: _toggle_pause()
 		if done_time >= 0.0 and not managed and i.a_pressed and job_time - done_time > 2.0: _new_site()
 	if running and done_time < 0.0: job_time += delta
@@ -416,6 +439,32 @@ func _pour_pose() -> void:
 	while is_instance_valid(w):
 		w.global_position = Vector3(1.6, 0.0, -2.2)
 		w._body.rotation.y = 1.15
+		await get_tree().physics_frame
+
+## Screenshot helper: the house stacked, a few gaps already foamed (too
+## generously) and a builder spraying the next one.
+func _foam_pose() -> void:
+	await get_tree().physics_frame
+	site.cheat("built")
+	for k in 30: await get_tree().physics_frame
+	# The front gap stays open for the shot; the stacking gaps got foamed.
+	var target: Dictionary = site.seams[0]
+	for sm in site.seams:
+		if sm.kind == "side" and sm.spot.z > target.spot.z: target = sm
+	for sm in site.seams:
+		if sm.kind != "stack": continue
+		for n in 18: Foam.blob(site, site.seam_spot(sm), randf_range(0.4, 0.8))
+		site.foam_seam(sm, 99.0)
+	var p: Dictionary
+	for q in players: if q.machine == null: p = q
+	if p.is_empty(): return
+	var w: Worker = p.worker
+	site.tools[0].grab(w)
+	hud.set_players(players)
+	var out := Vector3(target.spot.x - Site.HOUSE.x, 0, target.spot.z - Site.HOUSE.z).normalized()
+	while is_instance_valid(w):
+		w.global_position = Vector3(target.spot.x, 0, target.spot.z) + out * 2.6
+		w._body.rotation.y = atan2(out.x, out.z)
 		await get_tree().physics_frame
 
 func _pose_action() -> void:

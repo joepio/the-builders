@@ -122,8 +122,28 @@ func _run() -> void:
 	_check(mod.global_position.y > 2.0, "the rope holds the load up (y %.1f)" % mod.global_position.y)
 	await _hold(crane, {"ry": 1.0}, 3.0)
 	await _hold(crane, {"lx": 0.0}, 2.0)
-	_check(site.placed_count() == 1, "lowering onto the slot locks the module in (%d placed, module at %s, slot %s)" % [site.placed_count(), mod.global_position, slot.pos])
-	_check(crane.carrying == null, "placing releases the hook")
+	_check(site.placed_count() == 0, "lowering it does not snap it in by itself")
+	_check(site.bolt_problem(mod) == "", "a module lowered onto its ghost can be bolted (%s)" % site.bolt_problem(mod))
+	var before := mod.global_position
+	site.bolt(mod)
+	await _wait(0.6)
+	_check(site.placed_count() == 1, "bolting locks the module in (%d placed)" % site.placed_count())
+	_check(crane.carrying == null, "bolting releases the hook")
+	_check(Vector2(mod.global_position.x - before.x, mod.global_position.z - before.z).length() < 0.01, "bolting keeps it where it stood, no snapping")
+	# A module dumped far off its ghost can't be bolted.
+	var stray: Module = null
+	for m in get_nodes_in_group("module"):
+		if m.kind == "module" and not m.placed: stray = m; break
+	stray.global_transform = Transform3D(Basis.IDENTITY, site.slots[1].pos + Vector3(0, 0.05, 1.6))
+	await _wait(0.5)
+	_check(site.bolt_problem(stray) != "", "too far off the ghost is refused (%s)" % site.bolt_problem(stray))
+	stray.global_transform = Transform3D(Basis(Vector3.UP, 0.6), site.slots[3].pos + Vector3(0.1, 0.05, 0))
+	await _wait(0.5)
+	_check(site.bolt_problem(stray) == "Too crooked, turn it", "too twisted is refused (%s)" % site.bolt_problem(stray))
+	stray.global_transform = Transform3D(Basis(Vector3.UP, 0.05), site.slots[3].pos + Vector3(0.3, 0.05, 0.1))
+	await _wait(0.5)
+	site.bolt(stray)
+	_check(site.placed_count() == 2 and site.neatness() < 100, "a bit sloppy is fine but costs neatness (%d%%)" % site.neatness())
 	# Swinging: slewing quickly makes the load trail behind.
 	var mod2: Module = null
 	for m in get_nodes_in_group("module"):
@@ -221,6 +241,37 @@ func _run() -> void:
 	for c in site.cells: site.pour_at(Vector3(c.x, -0.5, c.z), 1.0)
 	await _wait(2.0)
 	_check(site.poured, "a full pit sets into the slab")
+
+	print("foam")
+	site = await _fresh()
+	site.cheat("built")
+	await _wait(1.0)
+	var open := 0
+	for sm in site.seams: if sm.open: open += 1
+	_check(site.seams.size() == 9 and open == 9, "a stacked house has gaps to foam (%d/%d open)" % [open, site.seams.size()])
+	_check(not site.finished, "the job isn't done with gaps left")
+	var side: Dictionary = {}
+	for sm in site.seams: if sm.kind == "side": side = sm; break
+	var gun: FoamGun = site.tools[0]
+	var foamer := Worker.new()
+	foamer.setup({"name": "Foamer", "color": Color.BLUE})
+	site.add_child(foamer)
+	var outward := Vector3(side.spot.x - Site.HOUSE.x, 0, side.spot.z - Site.HOUSE.z).normalized()
+	foamer.global_position = Vector3(side.spot.x, 0.1, side.spot.z) + outward * 2.4
+	foamer._body.rotation.y = atan2(outward.x, outward.z)
+	await _wait(0.3)
+	gun.grab(foamer)
+	await physics_frame
+	for k in 600:
+		foamer.global_position = Vector3(side.spot.x, foamer.global_position.y, side.spot.z) + outward * 2.4
+		gun.use(true, 1.0 / 120.0)
+		await physics_frame
+		if site.seams_done() > 0: break
+	_check(site.seams_done() == 1, "spraying PUR at a gap seals it (%d sealed)" % site.seams_done())
+	_check(get_nodes_in_group("foam").size() > 5, "and leaves lots of foam (%d blobs)" % get_nodes_in_group("foam").size())
+	for sm in site.seams: site.foam_seam(sm, 99.0)
+	await _wait(0.2)
+	_check(site.finished, "a stacked house with every gap sealed is done (neatness %d%%)" % site.neatness())
 
 	print("players")
 	if _site:

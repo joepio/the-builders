@@ -2,7 +2,7 @@ class_name Module
 extends RigidBody3D
 ## A prefab house module (or the roof) on a pallet. Forklifts slide their
 ## forks between the runners; the crane hooks the ring on top. Dropped close
-## enough to a free slot, it locks into the house.
+## onto its ghost, a builder on foot bolts it in where it stands.
 
 const WALLS := [Color("#3fb8a6"), Color("#ff8d5c"), Color("#5f95f0"), Color("#f2b632"), Color("#a46be8"), Color("#62c255")]
 const SIZE := Vector3(2.4, 2.1, 2.4)
@@ -14,6 +14,7 @@ var placed := false
 var color := Color.WHITE
 var _pallet: Array[Node] = []
 var _crane: Node = null
+var _tag: Label3D
 
 func setup(p_kind: String, index: int) -> void:
 	kind = p_kind
@@ -46,6 +47,7 @@ func _ready() -> void:
 	ring.position = lift_offset - Vector3(0, 0.05, 0)
 	ring.material_override = Toy.mat(Toy.ORANGE)
 	add_child(ring)
+	_pallet.append(ring)
 
 func _build_module() -> void:
 	var y0 := PALLET
@@ -92,6 +94,11 @@ func _build_roof() -> void:
 	Toy.shape(self, Vector3(5.0, 1.2, 2.4), Vector3(0, y0 + 0.6, 0))
 	Toy.shape(self, Vector3(3.0, 0.6, 1.2), Vector3(0, y0 + 1.4, 0))
 
+## Middle of the walls (or the roof), wherever the module ended up.
+func center() -> Vector3:
+	if kind == "roof": return global_transform * Vector3(0, PALLET + 0.5, 0)
+	return global_transform * Vector3(0, PALLET + SIZE.y / 2.0, 0)
+
 func on_hooked(crane: Node) -> void:
 	_crane = crane
 
@@ -101,19 +108,24 @@ func on_released() -> void:
 func is_hooked() -> bool:
 	return _crane != null and is_instance_valid(_crane)
 
-## Lock into the house at `xf` (slot transform; origin = module floor).
-func place(xf: Transform3D) -> void:
+## Bolted into the house right where it stands: no snapping, so a sloppy
+## crane job stays sloppy. The pallet comes out and it settles onto what's
+## below.
+func bolt() -> void:
 	placed = true
 	remove_from_group("liftable")
 	if is_hooked(): _crane.release()
 	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
 	freeze = true
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
 	for n in _pallet:
 		if n is CollisionShape3D: n.disabled = true
 		else: n.visible = false
-	var target := xf.translated(Vector3(0, -PALLET, 0))
-	var tw := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(self, "global_transform", target, 0.35)
+	if _tag: _tag.visible = false
+	var target := global_transform.translated(Vector3(0, -PALLET, 0))
+	var tw := create_tween().set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "global_transform", target, 0.3)
 	var pop := create_tween()
 	for child in get_children():
 		if child is MeshInstance3D:
@@ -122,3 +134,10 @@ func place(xf: Transform3D) -> void:
 	for child in get_children():
 		if child is MeshInstance3D:
 			pop.parallel().tween_property(child, "scale", child.scale, 0.2)
+
+## The floating "A bolt it" prompt over a module that's ready.
+func show_bolt_tag(on: bool) -> void:
+	if _tag == null:
+		_tag = Toy.label(self, "A  bolt it!", lift_offset + Vector3(0, 0.9, 0), Toy.YELLOW, 56)
+		_tag.top_level = false
+	_tag.visible = on
