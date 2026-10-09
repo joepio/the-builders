@@ -96,6 +96,13 @@ func drive(target_speed: float, target_yaw: float, delta: float, accel := 6.0, g
 	av.y = lerpf(av.y, target_yaw, clampf(turn_accel * delta, 0.0, 1.0))
 	angular_velocity = av
 
+## Shared track controls for every tracked machine: each trigger drives its
+## track forward, the bumper above it drives that track back.
+const TRACK_HINT := [[["LT", "LB"], "left track"], [["RT", "RB"], "right track"]]
+
+func tracks(i: Dictionary) -> Vector2:
+	return Vector2(float(i.lt) - (1.0 if i.lb else 0.0), float(i.rt) - (1.0 if i.rb else 0.0))
+
 func speed() -> float:
 	return Vector3(linear_velocity.x, 0, linear_velocity.z).length()
 

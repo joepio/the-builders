@@ -40,7 +40,7 @@ common/physics_ticks_per_second=120
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
-lights_and_shadows/directional_shadow/size=4096
+lights_and_shadows/directional_shadow/size=8192
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 environment/defaults/default_clear_color=Color(0.55,0.75,0.5,1)
 

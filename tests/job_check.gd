@@ -145,7 +145,7 @@ func _run() -> void:
 	junk.global_transform = Transform3D(Basis.IDENTITY, Vector3(12.5, 0.1, -9.0))
 	dz.global_transform = Transform3D(Basis(Vector3.UP, -PI / 2), Vector3(8.8, 0.05, -9.0))
 	await _wait(0.3)
-	await _hold(dz, {"ly": -1.0, "ry": -1.0}, 3.5)
+	await _hold(dz, {"lt": 1.0, "rt": 1.0}, 3.5)
 	await _wait(1.5)
 	print("    junk ", junk.global_position if is_instance_valid(junk) else "gone", " dozer ", dz.global_position)
 	_check(site.rubble_cleared >= 1, "pushing junk into the dump clears it (%d)" % site.rubble_cleared)
@@ -153,8 +153,12 @@ func _run() -> void:
 	dz.respawn()
 	await _wait(0.5)
 	yaw0 = dz.global_rotation.y
-	await _hold(dz, {"ly": -1.0, "ry": 1.0}, 1.0)
+	await _hold(dz, {"lt": 1.0, "rb": true}, 1.0)
 	_check(absf(angle_difference(yaw0, dz.global_rotation.y)) > 0.8, "opposite tracks spin on the spot")
+	var edge0: float = (dz.blade.global_transform * Vector3(0, -0.75, -1.45)).y
+	await _hold(dz, {"ry": -1.0}, 1.0)
+	var edge1: float = (dz.blade.global_transform * Vector3(0, -0.75, -1.45)).y
+	_check(edge1 - edge0 > 0.5, "right stick lifts the blade (%.2f m)" % (edge1 - edge0))
 
 	print("dump truck")
 	site = await _fresh()
@@ -205,10 +209,11 @@ func _run() -> void:
 	c.scripted = {"lx": 0.0}
 	await physics_frame
 	_check(p.machine == null and p.worker.visible, "B climbs back out")
-	c.scripted = {"lx": 1.0}
-	var x0: float = p.worker.global_position.x
+	# Walk towards the camera: the fridge junk sits just to the right.
+	c.scripted = {"ly": 1.0}
+	var z0: float = p.worker.global_position.z
 	await _wait(0.8)
-	_check(p.worker.global_position.x > x0 + 2.0, "walking moves the builder")
+	_check(p.worker.global_position.z > z0 + 2.0, "walking moves the builder")
 
 	print("")
 	if failures.is_empty(): print("ALL CHECKS PASSED")

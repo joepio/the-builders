@@ -93,7 +93,7 @@ static func cover(outer: Rect2, holes: Array) -> Array[Rect2]:
 			if not inside: out.append(Rect2(x0, z0, x1 - x0, z1 - z0))
 	return out
 
-func _slab(parent: Node3D, r: Rect2, top: float, depth: float, color: Color, collide: bool) -> void:
+func _slab(parent: Node3D, r: Rect2, top: float, depth: float, color: Variant, collide: bool) -> void:
 	var size := Vector3(r.size.x, depth, r.size.y)
 	var pos := Vector3(r.get_center().x, top - depth / 2.0, r.get_center().y)
 	Toy.box(parent, size, pos, color)
@@ -104,21 +104,12 @@ func _slab(parent: Node3D, r: Rect2, top: float, depth: float, color: Color, col
 
 func _build_ground() -> void:
 	var holes := [pit_rect, DUMP]
-	var grass := Color("#7cc56b")
-	var dirt := Color("#c99a62")
+	var grass := Decor.grass()
+	var sand := Decor.sand()
 	for r in cover(WORLD, [SITE]): _slab(self, r, 0.0, 3.0, grass, true)
-	for r in cover(SITE, holes): _slab(self, r, 0.0, 3.0, dirt, true)
-	# Tyre tracks and darker patches for texture.
-	for k in 26:
-		var p := Vector3(_rng.randf_range(SITE.position.x + 2, SITE.end.x - 2), 0.012, _rng.randf_range(SITE.position.y + 2, SITE.end.y - 2))
-		if pit_rect.grow(1.0).has_point(Vector2(p.x, p.z)) or DUMP.grow(1.0).has_point(Vector2(p.x, p.z)): continue
-		var patch := Toy.cyl(self, _rng.randf_range(1.0, 2.6), 0.02, p, Color("#b98a52"))
-		patch.scale = Vector3(1, 1, _rng.randf_range(0.5, 1.0))
+	for r in cover(SITE, holes): _slab(self, r, 0.0, 3.0, sand, true)
 	# Road outside the gate.
 	Toy.box(self, Vector3(8, 0.04, 36), Vector3((GATE.x + GATE.y) / 2.0, 0.02, SITE.end.y + 18), Color("#5b5f66"))
-	Toy.box(self, Vector3(140, 0.04, 7), Vector3(0, 0.02, SITE.end.y + 10), Color("#5b5f66"))
-	for k in 18:
-		Toy.box(self, Vector3(3.0, 0.05, 0.3), Vector3(-66 + k * 8, 0.03, SITE.end.y + 10), Color("#f4f1e6"))
 
 func _build_pit() -> void:
 	var floor_body := StaticBody3D.new()
@@ -295,17 +286,7 @@ func _build_props() -> void:
 	Toy.box(self, Vector3(1.3, 2.3, 1.3), loo + Vector3(0, 1.15, 0), Color("#3fb37f"))
 	Toy.cyl(self, 0.75, 0.25, loo + Vector3(0, 2.4, 0), Color("#e9eef5"))
 	Toy.shape(body, Vector3(1.3, 2.3, 1.3), loo + Vector3(0, 1.15, 0))
-	# Sand pile, pipes, crane pickup pad, material yard markings.
-	Toy.cyl(self, 2.6, 1.6, Vector3(-19, 0.8, -10), Color("#e3c27a"), Vector3.ZERO, 0.6, 14)
-	var pile := StaticBody3D.new()
-	add_child(pile)
-	var pc := CollisionShape3D.new()
-	var cyl := CylinderShape3D.new()
-	cyl.radius = 2.2
-	cyl.height = 1.4
-	pc.shape = cyl
-	pc.position = Vector3(-19, 0.7, -10)
-	pile.add_child(pc)
+	# Pipes, crane pickup pad, material yard markings.
 	for k in 3:
 		Toy.cyl(self, 0.35, 5.0, Vector3(-20.5, 0.35 + k * 0.62 * (0.0 if k < 2 else 1.0), 2.0 + k * 0.72 - (0.36 if k == 2 else 0.0)), Color("#e05a3a"), Vector3(PI / 2, 0, 0))
 	Toy.shape(body, Vector3(2.2, 1.3, 5.0), Vector3(-20.5, 0.65, 2.5))
@@ -315,27 +296,24 @@ func _build_props() -> void:
 	for p in [Vector3(-7, 0, 1.5), Vector3(1.5, 0, 1.5), Vector3(-7.5, 0, -7.5), Vector3(13, 0, -5), Vector3(4, 0, 13), Vector3(14, 0, 13)]:
 		Toy.cyl(self, 0.3, 0.8, p + Vector3(0, 0.4, 0), Toy.ORANGE, Vector3.ZERO, 0.05, 10)
 		Toy.cyl(self, 0.21, 0.16, p + Vector3(0, 0.45, 0), Color.WHITE, Vector3.ZERO, 0.17, 10)
-	# Trees and neighbour houses outside the fence.
-	for k in 40:
-		var p := Vector3(_rng.randf_range(WORLD.position.x + 4, WORLD.end.x - 4), 0, _rng.randf_range(WORLD.position.y + 4, WORLD.end.y - 4))
-		if SITE.grow(4.0).has_point(Vector2(p.x, p.z)): continue
-		if absf(p.z - (SITE.end.y + 10)) < 6.0: continue
-		if absf(p.x - (GATE.x + GATE.y) / 2.0) < 6.0 and p.z > SITE.end.y: continue
-		var s := _rng.randf_range(0.8, 1.4)
-		Toy.cyl(self, 0.25 * s, 1.6 * s, p + Vector3(0, 0.8 * s, 0), Color("#8a5a3a"))
-		Toy.ball(self, 1.4 * s, p + Vector3(0, 2.4 * s, 0), Color("#4e9d4a") if k % 3 else Color("#69b34c"))
-	for k in 5:
-		var p := Vector3(-34 + k * 14, 0, -34)
-		var col: Color = Module.WALLS[(k + 2) % Module.WALLS.size()]
-		Toy.box(self, Vector3(6, 4, 5), p + Vector3(0, 2, 0), col.darkened(0.1))
-		var roof := MeshInstance3D.new()
-		var pm := PrismMesh.new()
-		pm.size = Vector3(5.6, 2.2, 6.4)
-		roof.mesh = pm
-		roof.position = p + Vector3(0, 5.1, 0)
-		roof.rotation.y = PI / 2
-		roof.material_override = Toy.mat(Color("#c8553d"))
-		add_child(roof)
+	Decor.site_props(self, body)
+	# The world outside the fence.
+	var keep_out: Array = Decor.street(self, SITE)
+	keep_out.append(SITE.grow(1.5))
+	keep_out.append(Rect2(GATE.x - 1, SITE.end.y, GATE.y - GATE.x + 2, 40))
+	# Scenery gets its own dice so it never reshuffles the job layout.
+	var deco := RandomNumberGenerator.new()
+	deco.seed = 11
+	Decor.greenery(self, deco, Rect2(-46, -32, 92, 58), keep_out)
+	Decor.tufts(self, deco, Rect2(-46, -32, 92, 58), 2200, func(p: Vector2) -> bool:
+		for r in keep_out: if r.has_point(p): return false
+		return true, 2.0)
+	# Sparse weeds inside the site, mostly along the fence and away from the work areas.
+	var busy := [pit_rect.grow(1.5), DUMP.grow(1.0), Rect2(PAD.x - 3, PAD.z - 3, 6, 6), Rect2(YARD.x - 6, YARD.z - 5, 14, 10)]
+	Decor.tufts(self, deco, SITE.grow(-0.6), 260, func(p: Vector2) -> bool:
+		for r in busy: if r.has_point(p): return false
+		var edge := minf(minf(p.x - SITE.position.x, SITE.end.x - p.x), minf(p.y - SITE.position.y, SITE.end.y - p.y))
+		return edge < 3.0 or deco.randf() < 0.18)
 
 func _marking(center: Vector3, size: Vector2, text: String, color: Color) -> void:
 	var t := 0.18

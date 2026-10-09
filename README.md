@@ -7,7 +7,7 @@ let the concrete pour, then forklift the house modules to the crane and
 stack a tiny house.
 
 The machines are toys, but they don't all drive like toys. The bulldozer has
-one stick per track, the forklift steers with its rear wheels, the excavator
+a lever per track, the forklift steers with its rear wheels, the excavator
 uses real two-stick digger controls and the crane's load swings on its rope.
 That is the point.
 
@@ -34,14 +34,14 @@ show its controls in your player card.
 
 | Machine | Controls |
 | --- | --- |
-| Bulldozer | Left stick: left track, right stick: right track |
-| Excavator | Left stick: swing / arm in-out, right stick: boom / bucket curl, triggers and bumpers: tracks. Dirt stays in while the bucket faces up |
+| Bulldozer | LT / LB: left track forward / back, RT / RB: right track forward / back, right stick: lift and angle the blade |
+| Excavator | Left stick: swing / arm in-out, right stick: boom / bucket curl, LT / LB and RT / RB: tracks, same as the bulldozer. Dirt stays in while the bucket faces up |
 | Forklift | Left stick: steer (rear wheels), RT / LT: drive / reverse, right stick: forks |
 | Dump truck | Left stick: steer, RT / LT: drive / reverse, Y or RB: tip the bed |
 | Tower crane | Left stick: rotate / trolley, right stick: hoist, A: hook on / let go, LB / RB: turn the load |
 
-The GameNight setting **Machine controls: easy** gives the bulldozer and
-forklift normal steering and damps the crane's swing.
+The GameNight setting **Machine controls: easy** gives the bulldozer one-stick
+driving, the forklift normal steering and damps the crane's swing.
 
 Without GameNight, press A on a pad, Space (WASD + IJKL keyboard player) or
 Enter (arrows + numpad player) to join. Esc pauses.

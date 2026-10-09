@@ -73,7 +73,7 @@ func _parse_args() -> void:
 func _build_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("#86c46f")
+	env.background_color = Color("#5f9f43")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.72, 0.76, 0.86)
 	env.ambient_light_energy = 0.38
@@ -91,8 +91,10 @@ func _build_environment() -> void:
 	sun.light_color = Color(1.0, 0.95, 0.86)
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.04
-	sun.directional_shadow_max_distance = 140.0
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = 95.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_split_1 = 0.45
+	sun.shadow_blur = 0.6
 	add_child(sun)
 	camera = Camera3D.new()
 	camera.fov = _cam_fov
@@ -181,7 +183,7 @@ func _physics_process(delta: float) -> void:
 	for p in players:
 		var i: Dictionary = p.controls.read()
 		# Holding X shows this machine's controls in the player's card.
-		var show: bool = p.machine != null and (bool(i.x) or _pose and players.find(p) < 2)
+		var show: bool = p.machine != null and (bool(i.x) or _pose and (players.find(p) < 2 or p.machine is Bulldozer))
 		if show != bool(p.get("show_controls", false)):
 			p["show_controls"] = show
 			hud.set_players(players)
@@ -358,8 +360,8 @@ func _demo_drive(delta: float) -> void:
 			s.lx = 0.4 * sin(t)
 			s.ry = -0.6
 		elif p.machine is Bulldozer:
-			s.ly = -0.8
-			s.ry = -0.55
+			s.lt = 0.8
+			s.rt = 0.55
 		elif p.machine is DumpTruck:
 			s.rt = 0.4 if t < 2.0 else 0.0
 			s.lx = 0.6
@@ -411,6 +413,7 @@ func _pose_action() -> void:
 		site.spawn_clump(p, 0.25, Vector3.ZERO)
 	var dz: Bulldozer = by_type["Bulldozer"]
 	dz.global_transform = Transform3D(Basis(Vector3.UP, -PI / 2 + 0.3), Vector3(10.0, 0.02, -6.5))
+	dz.lift = 0.3
 	var junk: Array = get_tree().get_nodes_in_group("rubble")
 	junk[2].global_position = Vector3(13.0, 0.2, -7.8)
 	for p in players:

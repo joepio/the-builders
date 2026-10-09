@@ -90,14 +90,12 @@ func _build() -> void:
 	add_child(_bucket_body)
 	add_collision_exception_with(_bucket_body)
 	_bucket_body.add_collision_exception_with(self)
-	hint = [[["LS-h"], "swing"], [["LS-v"], "arm in / out"], [["RS-v"], "boom up / down"], [["RS-h"], "curl / dump bucket"], [["LT", "LB"], "left track"], [["RT", "RB"], "right track"], [["B"], "hop out"]]
+	hint = [[["LS-h"], "swing"], [["LS-v"], "arm in / out"], [["RS-v"], "boom up / down"], [["RS-h"], "curl / dump bucket"]] + TRACK_HINT + [[["B"], "hop out"]]
 	_pose()
 
 func control(i: Dictionary, delta: float) -> void:
-	# Tracks: triggers forward, bumpers back.
-	var l := float(i.lt) - (1.0 if i.lb else 0.0)
-	var r := float(i.rt) - (1.0 if i.rb else 0.0)
-	drive((l + r) * 0.5 * 3.5, (r - l) * 1.0, delta, 4.0, 0.95, 4.0)
+	var t := tracks(i)
+	drive((t.x + t.y) * 0.5 * 3.5, (t.y - t.x) * 1.0, delta, 4.0, 0.95, 4.0)
 	# Swing has momentum, so the arm overshoots a little: on purpose.
 	_swing_vel = lerpf(_swing_vel, -float(i.lx) * SWING_SPEED, clampf(2.5 * delta, 0, 1))
 	swing += _swing_vel * delta
