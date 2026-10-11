@@ -314,6 +314,7 @@ func _process(_delta: float) -> void:
 		if k >= 0 and tasks[k].locked: label = "later: " + label.to_lower()
 		if label != str(p.get("task", "")):
 			p["task"] = label
+			p["task_step"] = k
 			hud.set_players(players)
 		if k >= 0: tasks[k].who.append(p)
 	hud.set_tasks(tasks)

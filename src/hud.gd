@@ -4,6 +4,7 @@ extends CanvasLayer
 
 const INK := Color("#2b2118")
 const PAPER := Color("#fff7e6")
+const JobStyle = preload("res://src/job_style.gd")
 
 var _font: Font
 var _tasks: VBoxContainer
@@ -140,6 +141,15 @@ func set_tasks(tasks: Array) -> void:
 		row.add_theme_constant_override("separation", 10)
 		var tick := _label("", 26, INK)
 		tick.custom_minimum_size = Vector2(28, 0)
+		tick.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var badge := PanelContainer.new()
+		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var badge_style := StyleBoxFlat.new()
+		badge_style.set_corner_radius_all(7)
+		badge_style.content_margin_left = 4
+		badge_style.content_margin_right = 4
+		badge.add_theme_stylebox_override("panel", badge_style)
+		badge.add_child(tick)
 		var name := _label("", 26, INK)
 		name.custom_minimum_size = Vector2(290, 0)
 		var value := _label("", 26, INK)
@@ -148,12 +158,12 @@ func set_tasks(tasks: Array) -> void:
 		# tool belongs to it.
 		var who := HBoxContainer.new()
 		who.add_theme_constant_override("separation", 4)
-		row.add_child(tick)
+		row.add_child(badge)
 		row.add_child(name)
 		row.add_child(value)
 		row.add_child(who)
 		_tasks.add_child(row)
-		_task_rows.append([tick, name, value, who, ""])
+		_task_rows.append([tick, name, value, who, "", row, badge_style])
 	# Open steps get the focus; finished ones shrink and fade; of the locked
 	# ones only the next is hinted at.
 	var hinted := false
@@ -162,19 +172,21 @@ func set_tasks(tasks: Array) -> void:
 		var row: Array = _task_rows[k]
 		var done: bool = t.done
 		var locked: bool = t.get("locked", false) and not done
-		row[0].get_parent().visible = not locked or not hinted
+		row[5].visible = not locked or not hinted
 		if locked: hinted = true
 		var size := 26 if not done and not locked else 19
 		for c in 3: row[c].add_theme_font_size_override("font_size", size)
-		row[0].text = "✔" if done else ("·" if locked else "○")
-		row[0].add_theme_color_override("font_color", Color("#2f9e44") if done else Color(INK, 0.4) if locked else INK)
-		row[1].text = "Next: %s, %s" % [t.label, t.after] if locked else t.label
-		row[1].add_theme_color_override("font_color", Color(INK, 0.4) if done or locked else INK)
+		var task_color: Color = t.get("color", JobStyle.COLORS[k])
+		row[0].text = str(k + 1)
+		row[6].bg_color = task_color.darkened(0.25) if not locked else Color(INK, 0.25)
+		row[0].add_theme_color_override("font_color", Color.WHITE)
+		row[1].text = "Next: %s, %s" % [t.label, t.after] if locked else ("✔ " + t.label if done else t.label)
+		row[1].add_theme_color_override("font_color", Color(INK, 0.4) if done or locked else task_color.darkened(0.35))
 		if locked: row[2].text = ""
 		elif t.get("auto", false): row[2].text = "" if done else "auto"
 		elif t.get("percent", false): row[2].text = "%d%%" % t.value
 		else: row[2].text = "%d/%d" % [t.value, t.total]
-		row[2].add_theme_color_override("font_color", Color(INK, 0.4) if done else Toy.ORANGE.darkened(0.2))
+		row[2].add_theme_color_override("font_color", Color(INK, 0.4) if done else task_color.darkened(0.35))
 		var who: Array = [] if locked else t.get("who", [])
 		var key := str(who.map(func(p): return str(p.name)))
 		if key != row[4]:
@@ -232,7 +244,10 @@ func set_players(players: Array) -> void:
 		var job := "on foot" if thing == null else str(thing.title)
 		v.add_child(_label(job, 20, Color(INK, 0.6)))
 		if str(p.get("task", "")) != "":
-			var task := _label("→ " + str(p.task), 17, p.color.darkened(0.35))
+			var step: int = p.get("task_step", -1)
+			var prefix := "%d " % (step + 1) if step >= 0 else "→ "
+			var color: Color = JobStyle.COLORS[step].darkened(0.35) if step >= 0 else INK
+			var task := _label(prefix + str(p.task), 17, color)
 			v.add_child(task)
 		if thing != null and not p.get("show_controls", false):
 			var tip := HBoxContainer.new()

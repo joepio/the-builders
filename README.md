@@ -19,7 +19,7 @@ Steps unlock as you go. Junk and digging are open from the start; the pour opens
 
 | Step | Who | How |
 | --- | --- | --- |
-| Clear the junk | Bulldozer | Push everything with a small orange marker (sofa, tyres, slabs, barrel, old fridge) into the **DUMP** hole. Careful: drive over the edge and your machine falls in too, and comes back at its spawn |
+| Clear the junk | Bulldozer | Push everything with a pink **1** marker (sofa, tyres, slabs, barrel, old fridge) into the matching **1 DUMP** hole. The grey drums in the **FUEL** rack are permanent site equipment. Careful: drive over the edge and your machine falls in too, and comes back at its spawn |
 | Dig the foundation pit | Excavator | Scoop the nine pit cells 0.8 m deep. The whole site is sand: dig anywhere, and dirt dropped on the ground piles up where it lands |
 | Haul the dirt | Excavator + dump truck | Dump into the truck, drive it to the hole, tip the bed. Dirt spilled back into the pit fills it again |
 | Pour the concrete | Concrete truck + builder on foot | Park the mixer near the pit, press X to start the pump, then grab the hose on foot and pour every dug cell full. The hose only reaches 11 m and missed concrete splats on the sand |
@@ -28,6 +28,10 @@ Steps unlock as you go. Junk and digging are open from the start; the pour opens
 
 A module that falls in the dump is reordered and delivered again. The timer
 gives three stars under 8 minutes and two under 12.
+
+The job card and world targets share numbered colours: **1** pink junk,
+**2** blue digging, **3** teal concrete, **4** purple stacking and **5** orange
+PUR. The number and location labels stay readable without relying on colour.
 
 ## Controls
 
@@ -70,6 +74,7 @@ moves the camera.
 
 ```sh
 godot --headless --path . --script tests/job_check.gd   # every machine does its job step
+godot --headless --path . --script tests/job_visuals.gd # task colours/numbers and fixed fuel storage
 python3 tests/lifecycle.py --godot godot                # managed launch against a fake GameNight host
 ```
 

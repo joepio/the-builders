@@ -273,7 +273,23 @@ static func site_props(parent: Node3D, body: StaticBody3D) -> void:
 	for k in 9:
 		Toy.box(parent, Vector3(2.44, 2.3, 0.08), c + Vector3(0, 1.25, -2.6 + k * 0.65), Color("#a83224"))
 	Toy.shape(body, Vector3(2.4, 2.5, 6.0), c + Vector3(0, 1.25, 0))
-	# Barrels and a wheelbarrow.
+	# Fixed fuel storage, visibly bolted into a rack rather than loose junk.
+	# These remain static site equipment and intentionally have no junk marker.
+	var rack := Node3D.new()
+	rack.name = "FixedFuelStorage"
+	rack.add_to_group("fixed_site_equipment")
+	parent.add_child(rack)
+	var center := Vector3(14.95, 0, -12.95)
+	Toy.box(rack, Vector3(2.3, 0.16, 1.5), center + Vector3(0, 0.08, 0), Color("#39464e"))
+	Toy.shape(body, Vector3(2.3, 0.16, 1.5), center + Vector3(0, 0.08, 0))
+	for x in [-1.05, 1.05]:
+		for z in [-0.65, 0.65]:
+			Toy.box(rack, Vector3(0.08, 1.3, 0.08), center + Vector3(x, 0.65, z), Toy.STEEL)
+			Toy.cyl(rack, 0.09, 0.05, center + Vector3(x, 0.19, z), Toy.DARK)
+	for z in [-0.65, 0.65]:
+		Toy.box(rack, Vector3(2.18, 0.1, 0.08), center + Vector3(0, 1.26, z), Toy.STEEL)
+	Toy.label(rack, "FUEL", center + Vector3(0, 1.8, 0), Color("#e0e6e8"), 44)
 	for p in [Vector3(14.5, 0, -12.8), Vector3(15.4, 0, -13.1)]:
-		Toy.cyl(parent, 0.42, 1.0, p + Vector3(0, 0.5, 0), Color("#2f7fb5"))
-		Toy.shape(body, Vector3(0.84, 1.0, 0.84), p + Vector3(0, 0.5, 0))
+		Toy.cyl(rack, 0.42, 1.0, p + Vector3(0, 0.66, 0), Color("#54636c"))
+		Toy.cyl(rack, 0.43, 0.12, p + Vector3(0, 0.85, 0), Color("#d5c493"))
+		Toy.shape(body, Vector3(0.84, 1.0, 0.84), p + Vector3(0, 0.66, 0))

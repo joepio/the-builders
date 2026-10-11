@@ -7,6 +7,8 @@ extends Node3D
 signal message(text: String)
 signal job_done
 
+const JobStyle = preload("res://src/job_style.gd")
+
 const SITE := Rect2(-24, -15, 48, 30)
 const WORLD := Rect2(-70, -50, 140, 100)
 const HOUSE := Vector3(-3, 0, -3)
@@ -57,6 +59,9 @@ var _module_count := 0
 var _rng := RandomNumberGenerator.new()
 var _pending_deliveries := 0
 var _delivery_timer := 0.0
+var _pit_job_marker: Label3D
+var _pit_job_outline: Array[MeshInstance3D] = []
+var _pit_job_step := -1
 
 func _ready() -> void:
 	_rng.seed = 7
@@ -77,6 +82,13 @@ func _ready() -> void:
 	_spawn_modules()
 	_spawn_rubble()
 	_spawn_machines()
+	_pit_job_marker = Toy.label(self, JobStyle.title(1), HOUSE + Vector3(0, 1.2, 3.5), JobStyle.COLORS[1], 58)
+	for side in 4:
+		var horizontal := side < 2
+		var size := Vector3(6.4, 0.04, 0.1) if horizontal else Vector3(0.1, 0.04, 6.4)
+		var offset := Vector3(0, 0.06, -3.2 if side == 0 else 3.2) if horizontal else Vector3(-3.2 if side == 2 else 3.2, 0.06, 0)
+		_pit_job_outline.append(Toy.box(self, size, HOUSE + offset, JobStyle.COLORS[1]))
+	_update_job_markers()
 
 # ── Ground ───────────────────────────────────────────────────────────────────
 
@@ -311,7 +323,7 @@ func _build_dump() -> void:
 	add_child(sign_post)
 	Toy.box(sign_post, Vector3(0.15, 2.0, 0.15), Vector3(0, 1.0, 0), Toy.DARK)
 	Toy.box(sign_post, Vector3(2.4, 1.0, 0.12), Vector3(0, 2.2, 0), Toy.YELLOW)
-	Toy.label(sign_post, "DUMP", Vector3(0, 3.6, 0), Toy.YELLOW, 90)
+	Toy.label(sign_post, JobStyle.title(0, "DUMP"), Vector3(0, 3.6, 0), JobStyle.COLORS[0], 90)
 
 func _build_fence() -> void:
 	var r := SITE
@@ -370,8 +382,8 @@ func _build_props() -> void:
 	for k in 3:
 		Toy.cyl(self, 0.35, 5.0, Vector3(-20.5, 0.35 + k * 0.62 * (0.0 if k < 2 else 1.0), 2.0 + k * 0.72 - (0.36 if k == 2 else 0.0)), Color("#e05a3a"), Vector3(PI / 2, 0, 0))
 	Toy.shape(body, Vector3(2.2, 1.3, 5.0), Vector3(-20.5, 0.65, 2.5))
-	_marking(PAD, Vector2(5.5, 5.5), "CRANE PICKUP", Color("#ffd23f"))
-	_marking(YARD, Vector2(10.5, 8.0), "DELIVERIES", Color("#f6f1e7"))
+	_marking(PAD, Vector2(5.5, 5.5), JobStyle.title(3, "CRANE PICKUP"), JobStyle.COLORS[3])
+	_marking(YARD, Vector2(10.5, 8.0), JobStyle.title(3, "DELIVERIES"), JobStyle.COLORS[3])
 	# Cones
 	for p in [Vector3(-7, 0, 1.5), Vector3(1.5, 0, 1.5), Vector3(-7.5, 0, -7.5), Vector3(13, 0, -5), Vector3(4, 0, 13), Vector3(14, 0, 13)]:
 		Toy.cyl(self, 0.3, 0.8, p + Vector3(0, 0.4, 0), Toy.ORANGE, Vector3.ZERO, 0.05, 10)
@@ -426,12 +438,12 @@ func _build_slots() -> void:
 		bm.size = Module.SIZE if s.kind == "module" else Vector3(5.0, 1.4, 2.4)
 		ghost.mesh = bm
 		ghost.position = s.pos + Vector3(0, bm.size.y / 2.0, 0)
-		ghost.material_override = Toy.ghost(Color(0.4, 0.9, 1.0), 0.12)
+		ghost.material_override = Toy.ghost(JobStyle.COLORS[3], 0.12)
 		ghost.visible = false
 		add_child(ghost)
 		var dots := MeshInstance3D.new()
 		dots.mesh = _dashed_box(bm.size)
-		dots.material_override = Toy.glow(Color(0.45, 0.95, 1.0), 1.2)
+		dots.material_override = Toy.glow(JobStyle.COLORS[3], 1.2)
 		ghost.add_child(dots)
 		s["ghost"] = ghost
 	_build_seams()
@@ -451,9 +463,10 @@ func _build_seams() -> void:
 			elif b.layer == a.layer + 1 and (flat < 0.1 or (b.kind == "roof" and absf(flat - g) < 0.1)): kind = "stack"
 			if kind == "": continue
 			var marker := MeshInstance3D.new()
-			marker.material_override = Toy.glow(Color("#ff3b1f"), 0.5)
+			marker.material_override = Toy.glow(JobStyle.COLORS[4], 0.5)
 			marker.visible = false
 			add_child(marker)
+			Toy.label(marker, "5", Vector3(0, 0.25, 0), JobStyle.COLORS[4], 38)
 			seams.append({"a": a, "b": b, "kind": kind, "open": false, "done": false, "foam": 0.0, "need": 1.0, "marker": marker})
 
 ## Open seams once both their parts are bolted: how much foam a gap takes
@@ -733,7 +746,9 @@ func _spawn_rubble() -> void:
 		mark.top_level = true
 		mark.name = "JunkMark"
 		b.add_child(mark)
-		Toy.cyl(mark, 0.24, 0.42, Vector3.ZERO, Toy.ORANGE, Vector3(PI, 0, 0), 0.0, 8)
+		Toy.cyl(mark, 0.27, 0.42, Vector3.ZERO, Toy.glow(JobStyle.COLORS[0], 0.25), Vector3(PI, 0, 0), 0.0, 8)
+		var number := Toy.label(mark, "1", Vector3(0, 0.44, 0), JobStyle.COLORS[0], 46)
+		number.name = "TaskNumber"
 
 ## A crate by the builders' gate with two foam guns on it.
 ## Tufts stand on the ground: they sink and rise with it, and vanish where
@@ -753,7 +768,7 @@ func _settle_tufts() -> void:
 func _spawn_tools() -> void:
 	var crate := Vector3(-15.5, 0, 7.0)
 	Toy.box(self, Vector3(1.8, 0.5, 1.0), crate + Vector3(0, 0.25, 0), Color("#2a8ad6"))
-	Toy.label(self, "PUR", crate + Vector3(0, 0.55, 0.55), Color.WHITE, 48).rotation.x = -PI / 2
+	Toy.label(self, JobStyle.title(4), crate + Vector3(0, 0.55, 0.55), JobStyle.COLORS[4], 48).rotation.x = -PI / 2
 	for k in 2:
 		var gun := FoamGun.new()
 		gun.site = self
@@ -804,10 +819,26 @@ func tasks() -> Array:
 		{"value": seams_done(), "total": seams.size(), "done": seams_done() >= seams.size()},
 	]
 	for k in list.size():
+		list[k]["step"] = k
+		list[k]["color"] = JobStyle.COLORS[k]
 		list[k]["label"] = STEP_NAMES[k]
 		list[k]["after"] = STEP_AFTER[k]
 		list[k]["locked"] = not unlocked[k]
 	return list
+
+## The pit changes purpose as the job advances; show its current task number.
+func _update_job_markers() -> void:
+	if _pit_job_marker == null: return
+	_pit_job_marker.visible = not finished
+	for edge in _pit_job_outline: edge.visible = not finished
+	var step := 1
+	if poured: step = 4 if placed_count() >= slots.size() else 3
+	elif unlocked[2]: step = 2
+	if step == _pit_job_step: return
+	_pit_job_step = step
+	_pit_job_marker.text = JobStyle.title(step)
+	_pit_job_marker.modulate = JobStyle.COLORS[step]
+	for edge in _pit_job_outline: edge.material_override = Toy.glow(JobStyle.COLORS[step], 0.15)
 
 ## Open the next steps as the earlier ones get done.
 func _update_unlocks() -> void:
@@ -819,6 +850,7 @@ func _update_unlocks() -> void:
 			message.emit("New step: %s!" % STEP_NAMES[k])
 
 func _physics_process(delta: float) -> void:
+	_update_job_markers()
 	for m in machines:
 		for k in m.marks.size():
 			var mk: Array = m.marks[k]
