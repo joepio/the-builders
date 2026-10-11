@@ -119,6 +119,32 @@ func add(center: Vector3, volume: float, radius: float, slump := true) -> void:
 	if slump: _relax(center, radius + RES * 2.0)
 	_touch(center, radius + RES * 2.0)
 
+## Spread scraped soil over a broad patch, at most 12 cm above the blade's
+## grade. Only cut what can be redistributed: soil never vanishes or piles
+## into a new spike. Reserved excavations are not filled by the dozer.
+func grade(center: Vector3, grade_y: float, cut_radius: float, spread_center: Vector3,
+		spread_radius: float, max_volume: float, reserved := Rect2()) -> float:
+	if max_volume <= 0.0: return 0.0
+	var ceiling := grade_y + 0.12
+	var source := {}
+	for q in _around(center, cut_radius): source[q[0]] = true
+	var destinations := []
+	var capacity := 0.0
+	for q in _around(spread_center, spread_radius):
+		var k: int = q[0]
+		if source.has(k) or reserved.has_point(_point(k % nx, k / nx)): continue
+		var room := maxf(0.0, ceiling - h[k]) * float(q[1]) * RES * RES
+		if room <= 0.0: continue
+		destinations.append([k, room])
+		capacity += room
+	if capacity <= 0.0001: return 0.0
+	var removed := cut(center, grade_y, cut_radius, minf(max_volume, capacity), true)
+	if removed <= 0.0: return 0.0
+	for q in destinations:
+		h[q[0]] += (removed / capacity) * float(q[1]) / (RES * RES)
+	_touch(spread_center, spread_radius)
+	return removed
+
 ## Set everything inside `r` to height `y` (the foundation, the cheat).
 func flatten(r: Rect2, y: float) -> void:
 	for j in nz:

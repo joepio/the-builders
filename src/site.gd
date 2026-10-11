@@ -82,10 +82,10 @@ func _ready() -> void:
 	_spawn_modules()
 	_spawn_rubble()
 	_spawn_machines()
-	_pit_job_marker = Toy.label(self, JobStyle.title(1), HOUSE + Vector3(0, 1.2, 3.5), JobStyle.COLORS[1], 58)
+	_pit_job_marker = Toy.label(self, JobStyle.title(1), HOUSE + Vector3(0, 3.1, 0), JobStyle.COLORS[1], 68)
 	for side in 4:
 		var horizontal := side < 2
-		var size := Vector3(6.4, 0.04, 0.1) if horizontal else Vector3(0.1, 0.04, 6.4)
+		var size := Vector3(6.4, 0.05, 0.18) if horizontal else Vector3(0.18, 0.05, 6.4)
 		var offset := Vector3(0, 0.06, -3.2 if side == 0 else 3.2) if horizontal else Vector3(-3.2 if side == 2 else 3.2, 0.06, 0)
 		_pit_job_outline.append(Toy.box(self, size, HOUSE + offset, JobStyle.COLORS[1]))
 	_update_job_markers()
@@ -192,18 +192,13 @@ func dig_at(p: Vector3, amount: float) -> float:
 	if not c.is_empty() and float(c.concrete) > 0.0: return 0.0
 	return terrain.cut(p, p.y - 0.2, 0.9, amount * VOL_PER_LOAD) / VOL_PER_LOAD
 
-## A dozer blade edge at `p` scrapes sand above it and shoves it ahead
-## along `ahead`, so a berm builds up in front of the blade.
+## The dozer levels loose piles and spreads their soil across low ground.
+## Unlike the excavator it does not dig below site grade or refill the pit.
 func plow(p: Vector3, ahead: Vector3, max_volume: float) -> void:
 	if not terrain.contains(p) or terrain.is_hole(p): return
 	if (poured or pouring) and pit_rect.grow(0.3).has_point(Vector2(p.x, p.z)): return
-	# The edge bites a little under itself, or the dozer would climb the
-	# thin layer it leaves behind, a few centimetres at a time.
-	var floor_y := p.y - 0.12
-	if terrain.height_at(p) <= floor_y: return
-	var got := terrain.cut(p, floor_y, 0.5, max_volume, true)
-	# No slumping here: it would slide the berm back under the blade.
-	if got > 0.0: terrain.add(p + ahead * 0.65, got, 0.6, false)
+	var floor_y := maxf(0.0, p.y - 0.12)
+	terrain.grade(p, floor_y, 0.5, p + ahead * 2.0, 2.4, max_volume, pit_rect.grow(0.05))
 
 ## Ground height under a point: the pit floor, dirt or concrete in the pit.
 func ground_at(p: Vector3) -> float:
@@ -836,7 +831,8 @@ func _update_job_markers() -> void:
 	elif unlocked[2]: step = 2
 	if step == _pit_job_step: return
 	_pit_job_step = step
-	_pit_job_marker.text = JobStyle.title(step)
+	var area_names := ["", "DIG FOUNDATION", "POUR CONCRETE", "STACK HOUSE", "SEAL GAPS"]
+	_pit_job_marker.text = JobStyle.title(step, area_names[step]) + "\n↓"
 	_pit_job_marker.modulate = JobStyle.COLORS[step]
 	for edge in _pit_job_outline: edge.material_override = Toy.glow(JobStyle.COLORS[step], 0.15)
 

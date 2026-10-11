@@ -56,6 +56,12 @@ func _run() -> void:
 	print("excavator")
 	var site := await _fresh()
 	var ex: Excavator = _machine(site, Excavator)
+	# Count emitted clumps: an earlier, natural spill can already have settled
+	# back into terrain by the time the bucket is checked below.
+	var spilled: Array[float] = []
+	var count_spill := func(node: Node) -> void:
+		if node.is_in_group("clump"): spilled.append(float(node.get_meta("amount")))
+	node_added.connect(count_spill)
 	ex.boom_angle = 0.0
 	ex.arm_angle = -0.8
 	ex.bucket_angle = -0.6
@@ -68,7 +74,8 @@ func _run() -> void:
 	await _hold(ex, {"rx": 1.0}, 1.6)
 	await _wait(1.5)
 	_check(ex.carried < 0.05, "tipping the bucket empties it (%.2f left)" % ex.carried)
-	_check(get_nodes_in_group("clump").size() >= 3, "dirt falls out as clumps (%d)" % get_nodes_in_group("clump").size())
+	_check(spilled.size() >= 3, "dirt falls out as clumps (%d)" % spilled.size())
+	node_added.disconnect(count_spill)
 	await _hold(ex, {"lt": 1.0, "rt": 1.0}, 1.0)
 	_check(ex.global_position.z < 3.8, "both tracks drive forward (z %.1f)" % ex.global_position.z)
 
@@ -176,7 +183,7 @@ func _run() -> void:
 	yaw0 = dz.global_rotation.y
 	await _hold(dz, {"lt": 1.0, "rb": true}, 1.0)
 	_check(absf(angle_difference(yaw0, dz.global_rotation.y)) > 0.8, "opposite tracks spin on the spot")
-	# Blade down into the sand: it scrapes and builds a berm ahead.
+	# Blade down into a loose pile: level it without creating a tall berm.
 	dz.respawn()
 	await _wait(0.4)
 	dz.lift = Bulldozer.LIFT.x

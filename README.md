@@ -45,8 +45,8 @@ On foot, the left stick walks, **B** jumps (out of the pit, say), **A** bolts a 
 
 | Machine | Controls |
 | --- | --- |
-| Bulldozer | LT / LB: left track forward / back, RT / RB: right track forward / back, right stick: lift and angle the blade. A lowered blade scrapes sand and pushes it ahead as a berm |
-| Excavator | Left stick: swing / arm in-out, right stick: boom / bucket curl, LT / LB and RT / RB: tracks, same as the bulldozer. Dirt stays in while the bucket faces up. Shove the bucket into the ground and the digger levers itself up on its arm |
+| Bulldozer | LT / LB: left track forward / back, RT / RB: right track forward / back, right stick: lift and angle the blade. Drive forward with a lowered blade to level loose piles and spread a thin layer of sand. It leaves flat ground and the dug foundation intact |
+| Excavator | Left stick: swing / arm in-out, right stick: boom / bucket curl, LT / LB and RT / RB: tracks, same as the bulldozer. Dirt stays in while the bucket faces up; tip it forward to empty it. Shove the bucket into the ground and the digger levers itself up on its arm |
 | Forklift | Left stick: steer (rear wheels), RT / LT: drive / reverse, right stick: forks |
 | Dump truck | Left stick: steer, RT / LT: drive / reverse, RB: tip the bed |
 | Concrete truck | Left stick: steer, RT / LT: drive / reverse, X: pump on / off |
@@ -75,6 +75,8 @@ moves the camera.
 ```sh
 godot --headless --path . --script tests/job_check.gd   # every machine does its job step
 godot --headless --path . --script tests/job_visuals.gd # task colours/numbers and fixed fuel storage
+godot --headless --path . --script tests/grading.gd # flattening, soil conservation and pit protection
+godot --headless --path . --script tests/excavator_unload.gd # emptying at different arm angles
 python3 tests/lifecycle.py --godot godot                # managed launch against a fake GameNight host
 ```
 

@@ -89,19 +89,20 @@ func control(i: Dictionary, delta: float) -> void:
 	for k in 2:
 		_tracks[k].position.y = 0.45 + sin(_track_phase[k] * 6.0) * 0.015
 
-## A lowered blade cuts the sand under its edge and pushes it ahead.
+## Grade only while travelling forward: neither idling nor reversing churns sand.
 func _scrape(delta: float) -> void:
 	if site == null: return
 	var ahead := -blade.global_transform.basis.z
 	ahead.y = 0.0
 	ahead = ahead.normalized()
-	var push := clampf(speed() / SPEED, 0.15, 1.0)
+	var travel := clampf(linear_velocity.dot(ahead), 0.0, SPEED) * delta
+	if travel <= 0.0001: return
 	# Two rows: the edge, and just behind it so sand that slumps back under
 	# the blade gets caught too instead of lifting the dozer.
 	for z in [-1.45, -0.95]:
 		for k in 7:
 			var p := blade.global_transform * Vector3(-1.5 + k * 0.5, -0.81, z)
-			site.plow(p, ahead, 0.4)
+			site.plow(p, ahead, travel * 0.12)
 
 func _pose() -> void:
 	blade.rotation = Vector3(lift, angle, 0)

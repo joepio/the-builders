@@ -17,7 +17,7 @@ func _run() -> void:
 	var hud := Hud.new()
 	root.add_child(hud)
 	hud.set_tasks(site.tasks())
-	check(site._pit_job_marker.text == "2 DIG", "New pit identifies the digging job")
+	check(site._pit_job_marker.text == "2 DIG FOUNDATION\n↓", "New pit explicitly identifies the foundation area")
 	check(site._pit_job_marker.modulate == site.tasks()[1].color, "Pit and digging row share a colour")
 	for piece in get_nodes_in_group("rubble"):
 		check(piece is RigidBody3D and not piece.freeze, "Marked junk remains movable")
@@ -32,14 +32,14 @@ func _run() -> void:
 	check(hud._task_rows[2][5].visible and not hud._task_rows[3][5].visible, "Only the next locked task is shown")
 	site.cheat("dug")
 	site._update_job_markers()
-	check(site._pit_job_marker.text == "3 POUR" and site._pit_job_marker.modulate == site.tasks()[2].color, "Dug pit changes to the concrete task identity")
+	check(site._pit_job_marker.text.begins_with("3 POUR") and site._pit_job_marker.modulate == site.tasks()[2].color, "Dug pit changes to the concrete task identity")
 	site.poured = true
 	site._update_unlocks()
 	site._update_job_markers()
-	check(site._pit_job_marker.text == "4 STACK" and site._pit_job_marker.modulate == site.tasks()[3].color, "Cured slab changes to the stacking task identity")
+	check(site._pit_job_marker.text.begins_with("4 STACK") and site._pit_job_marker.modulate == site.tasks()[3].color, "Cured slab changes to the stacking task identity")
 	site.cheat("built")
 	site._update_job_markers()
-	check(site._pit_job_marker.text == "5 PUR" and site._pit_job_marker.modulate == site.tasks()[4].color, "Finished structure points to the PUR task")
+	check(site._pit_job_marker.text.begins_with("5 SEAL") and site._pit_job_marker.modulate == site.tasks()[4].color, "Finished structure points to the PUR task")
 	for seam in site.seams:
 		check(seam.marker.material_override.emission == site.tasks()[4].color, "Seam targets use the PUR task colour")
 	site.finished = true

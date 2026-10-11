@@ -11,6 +11,7 @@ const ARM := Vector2(-2.3, -0.35)
 const BUCKET := Vector2(-2.1, 0.5)   ## A real bucket curls about 150 degrees
 const CAPACITY := 1.0
 const CLUMPS_PER_LOAD := 4
+const SPILL_MOUTH_UP := 0.5   ## Sand slides out once the cup tips past 60 degrees.
 
 var cab: Node3D
 var boom: Node3D
@@ -148,14 +149,17 @@ func _dig(curl: float, delta: float) -> void:
 			var f := mass * (lift_push * 45.0 - tip_vy * 6.0)
 			if f > 0.0: apply_force(Vector3.UP * minf(f, mass * 30.0), t - global_position)
 	else: lift_push = 0.0
-	# Spilling: an upside-down bucket empties itself in clumps.
-	if carried > 0.01 and mouth_up() < -0.15:
+	# Sand slides out of a tipped cup before it is fully upside down. Requiring
+	# inversion leaves a raised boom/extended arm unable to dump at its stop.
+	if carried > 0.0 and mouth_up() < SPILL_MOUTH_UP:
 		_spill_timer -= delta
 		if _spill_timer <= 0.0:
 			_spill_timer = 0.12
 			var amount := minf(carried, CAPACITY / CLUMPS_PER_LOAD)
 			carried -= amount
 			site.spawn_clump(bucket.global_transform * Vector3(0, -0.2, -0.4), amount, linear_velocity)
+	else:
+		_spill_timer = 0.0
 	_load_mesh.visible = carried > 0.02
 	if _load_mesh.visible:
 		var s := 0.5 + carried * 0.6
